@@ -1,6 +1,7 @@
 '
-'	Erku - IPTV client for the Roku OS
+'	aIcku - another IPTV client for Roku OS
 '	Copyright (C) 2024 Eric Kutcher
+'	Copyright (C) 2026 Xin Wang
 '	Released under the GPLv3 license.
 '
 
@@ -21,15 +22,15 @@ sub Init()
 	m.container.width = m.row_width
 	m.container.color = m.global.panel_color
 
-	title = CreateObject( "roSGNode", "Label" )
-	title.width = m.global.screen_width
-	title.height = 75
-	title.translation = [ 0, 20 ]
-	title.horizAlign = "center"
-	title.font = CreateChineseFont( 36 )
-	title.text = "Channel Options"
+	m.title = CreateObject( "roSGNode", "Label" )
+	m.title.width = m.global.screen_width
+	m.title.height = 75
+	m.title.translation = [ 0, 20 ]
+	m.title.horizAlign = "center"
+	m.title.font = CreateChineseFont( 36 )
+	m.title.text = _tr( "channel_options" )
 
-	m.container.AppendChild( title )
+	m.container.AppendChild( m.title )
 
 	m.channel_name = CreateObject( "roSGNode", "ScrollingLabel" )
 	m.channel_name.maxWidth = m.global.screen_width
@@ -44,7 +45,7 @@ sub Init()
 	m.drawing_styles = {
 		"icon": {
 			"fontSize": 48
-			"fontUri": "pkg:/components/fonts/Erku.ttf"
+			"fontUri": "pkg:/components/fonts/aIcku.ttf"
 			"color": "#FFFFFFFF"
 		}
 		"default": {
@@ -88,7 +89,7 @@ sub Init()
 			m.add_remove_favorites.translation = [ 20, 0 ]
 			m.add_remove_favorites.vertAlign = "center"
 			m.add_remove_favorites.drawingStyles = m.drawing_styles
-			m.add_remove_favorites.text = "Add to Favorites"
+			m.add_remove_favorites.text = _tr( "add_to_favorites" )
 			m.add_remove_favorites_selected.AppendChild( m.add_remove_favorites )
 
 		m.add_remove_favorites_selected.width = m.add_remove_favorites.boundingRect()[ "width" ] + 40
@@ -111,9 +112,17 @@ sub Init()
 	m.top.AppendChild( m.panel )
 
 	m.top.ObserveField( "visible", "OnVisible" )
+	m.global.ObserveField( "translations", "UpdateLang" )
 
 	m.saving_favorite = false
 '}
+end sub
+
+sub UpdateLang()
+	if m.title <> invalid
+		m.title.text = _tr( "channel_options" )
+	end if
+	OnVisible()
 end sub
 
 sub OnFavoriteStatusChanged()
@@ -152,13 +161,14 @@ sub OnVisible()
 
 			if m.top.content.Favorite = false
 			'{
+				m.favorites_icon.text = "<icon>" + chr( 59660 ) + "</icon>"	' Actually 59660 is checkbox unchecked, let's keep original icons but translate text
 				m.favorites_icon.text = "<icon>" + chr( 59655 ) + "</icon>"	' Add Bookmark
-				m.add_remove_favorites.text = "Add to Favorites"
+				m.add_remove_favorites.text = _tr( "add_to_favorites" )
 			'}
 			else
 			'{
 				m.favorites_icon.text = "<icon>" + chr( 59654 ) + "</icon>"	' Remove Bookmark
-				m.add_remove_favorites.text = "Remove from Favorites"
+				m.add_remove_favorites.text = _tr( "remove_from_favorites" )
 			'}
 			end if
 

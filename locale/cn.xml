@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<locale>
+    <string id="options">设置</string>
+    <string id="feed_url_title">输入订阅地址</string>
+    <string id="feed_url_label">订阅地址:</string>
+    <string id="enable_automatic_subtitles">启用自动字幕</string>
+    <string id="sort_channels_by">频道排序方式:</string>
+    <string id="number">数字</string>
+    <string id="name">名称</string>
+    <string id="resume_channel">启动时恢复上次播放的频道</string>
+    <string id="ui_language">界面语言:</string>
+    <string id="adjust_overscan">调整画面边距...</string>
+    <string id="live_tv">电视直播</string>
+    <string id="loading_groups">正在加载分组...</string>
+    <string id="no_groups_available">没有可用的分组</string>
+    <string id="season">季</string>
+    <string id="loading_group">正在加载分组...</string>
+    <string id="loading_channels">正在加载频道...</string>
+    <string id="no_channels_available">没有可用的频道</string>
+    <string id="loading_channel">正在加载频道...</string>
+    <string id="channel_options">频道选项</string>
+    <string id="add_to_favorites">添加到收藏</string>
+    <string id="remove_from_favorites">从收藏中移除</string>
+    <string id="loading_guide">正在加载节目表...</string>
+    <string id="guide_not_available">节目表不可用</string>
+    <string id="no_information">暂无节目信息</string>
+    <string id="caption_modes">字幕模式</string>
+    <string id="subtitle_tracks">字幕轨</string>
+    <string id="audio_tracks">音频轨</string>
+    <string id="on">开启</string>
+    <string id="off">关闭</string>
+    <string id="instant_replay">即时回放</string>
+    <string id="when_mute">静音时</string>
+    <string id="not_available">[不可用]</string>
+    <string id="unknown">未知</string>
+    <string id="none">无</string>
+    <string id="parental_control_lock">家长控制锁</string>
+    <string id="parental_control_active_msg">当前时段已启用家长控制，播放已被禁用。</string>
+    <string id="apply">应用</string>
+    <string id="reset">重置</string>
+    <string id="adjust_top_left">调整左上角</string>
+    <string id="adjust_bottom_right">调整右下角</string>
+    <string id="adjust_overscan_instructions">使用方向键调整画面，直到红色背景消失。</string>
+    <string id="restart_channel_instructions">重新启动频道以使更改生效。</string>
+    <string id="all">全部</string>
+    <string id="favorites">收藏</string>
+</locale>

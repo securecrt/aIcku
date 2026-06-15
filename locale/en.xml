@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<locale>
+    <string id="options">Options</string>
+    <string id="feed_url_title">Enter The Feed URL</string>
+    <string id="feed_url_label">Feed URL:</string>
+    <string id="enable_automatic_subtitles">Enable Automatic Subtitles</string>
+    <string id="sort_channels_by">Sort channels by:</string>
+    <string id="number">Number</string>
+    <string id="name">Name</string>
+    <string id="resume_channel">Resume Channel Upon Startup</string>
+    <string id="ui_language">UI Language:</string>
+    <string id="adjust_overscan">Adjust Overscan Coordinates...</string>
+    <string id="live_tv">Live TV</string>
+    <string id="loading_groups">Loading Groups...</string>
+    <string id="no_groups_available">No Groups Available</string>
+    <string id="season">Season</string>
+    <string id="loading_group">Loading Group...</string>
+    <string id="loading_channels">Loading Channels...</string>
+    <string id="no_channels_available">No Channels Available</string>
+    <string id="loading_channel">Loading Channel...</string>
+    <string id="channel_options">Channel Options</string>
+    <string id="add_to_favorites">Add to Favorites</string>
+    <string id="remove_from_favorites">Remove from Favorites</string>
+    <string id="loading_guide">Loading Guide...</string>
+    <string id="guide_not_available">Guide Not Available</string>
+    <string id="no_information">No information</string>
+    <string id="caption_modes">Caption Modes</string>
+    <string id="subtitle_tracks">Subtitle Tracks</string>
+    <string id="audio_tracks">Audio Tracks</string>
+    <string id="on">On</string>
+    <string id="off">Off</string>
+    <string id="instant_replay">Instant replay</string>
+    <string id="when_mute">When mute</string>
+    <string id="not_available">[Not Available]</string>
+    <string id="unknown">Unknown</string>
+    <string id="none">None</string>
+    <string id="parental_control_lock">Parental Control Lock</string>
+    <string id="parental_control_active_msg">Parental control is active. Playback is disabled.</string>
+    <string id="apply">Apply</string>
+    <string id="reset">Reset</string>
+    <string id="adjust_top_left">Adjust Top-Left</string>
+    <string id="adjust_bottom_right">Adjust Bottom-Right</string>
+    <string id="adjust_overscan_instructions">Use the directional arrows to adjust the viewing window until the red background disappears.</string>
+    <string id="restart_channel_instructions">Restart the channel for changes to take effect.</string>
+    <string id="all">All</string>
+    <string id="favorites">Favorites</string>
+</locale>

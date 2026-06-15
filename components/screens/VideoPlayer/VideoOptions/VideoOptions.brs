@@ -1,6 +1,7 @@
 '
-'	Erku - IPTV client for the Roku OS
+'	aIcku - another IPTV client for Roku OS
 '	Copyright (C) 2024 Eric Kutcher
+'	Copyright (C) 2026 Xin Wang
 '	Released under the GPLv3 license.
 '
 
@@ -30,29 +31,29 @@ sub Init()
 	label_width = 600
 	label_height = 75
 
-	label = CreateObject( "roSGNode", "Label" )
-	label.width = caption_label_width
-	label.translation = [ 20, 20 ]
-	label.horizAlign = "center"
-	label.font = CreateChineseFont( 32 )
-	label.text = "Caption Modes"
-	m.panel.AppendChild( label )
+	m.label_caption = CreateObject( "roSGNode", "Label" )
+	m.label_caption.width = caption_label_width
+	m.label_caption.translation = [ 20, 20 ]
+	m.label_caption.horizAlign = "center"
+	m.label_caption.font = CreateChineseFont( 32 )
+	m.label_caption.text = _tr( "caption_modes" )
+	m.panel.AppendChild( m.label_caption )
 
-	label = CreateObject( "roSGNode", "Label" )
-	label.width = label_width
-	label.translation = [ 20 + caption_label_width + 20, 20 ]
-	label.horizAlign = "center"
-	label.font = CreateChineseFont( 32 )
-	label.text = "Subtitle Tracks"
-	m.panel.AppendChild( label )
+	m.label_subtitle = CreateObject( "roSGNode", "Label" )
+	m.label_subtitle.width = label_width
+	m.label_subtitle.translation = [ 20 + caption_label_width + 20, 20 ]
+	m.label_subtitle.horizAlign = "center"
+	m.label_subtitle.font = CreateChineseFont( 32 )
+	m.label_subtitle.text = _tr( "subtitle_tracks" )
+	m.panel.AppendChild( m.label_subtitle )
 
-	label = CreateObject( "roSGNode", "Label" )
-	label.width = label_width
-	label.translation = [ 20 + caption_label_width + 20 + label_width + 20, 20 ]
-	label.horizAlign = "center"
-	label.font = CreateChineseFont( 32 )
-	label.text = "Audio Tracks"
-	m.panel.AppendChild( label )
+	m.label_audio = CreateObject( "roSGNode", "Label" )
+	m.label_audio.width = label_width
+	m.label_audio.translation = [ 20 + caption_label_width + 20 + label_width + 20, 20 ]
+	m.label_audio.horizAlign = "center"
+	m.label_audio.font = CreateChineseFont( 32 )
+	m.label_audio.text = _tr( "audio_tracks" )
+	m.panel.AppendChild( m.label_audio )
 
 	''''''''''''''''''''''''
 
@@ -142,10 +143,32 @@ sub Init()
 	m.top.AppendChild( m.panel )
 
 	m.top.ObserveField( "visible", "OnVisible" )
+	m.global.ObserveField( "translations", "UpdateLang" )
 
 	m.options = [ option_1, option_2, option_3 ]
 '}
 end sub
+
+sub UpdateLang()
+	if m.label_caption <> invalid
+		m.label_caption.text = _tr( "caption_modes" )
+	end if
+	if m.label_subtitle <> invalid
+		m.label_subtitle.text = _tr( "subtitle_tracks" )
+	end if
+	if m.label_audio <> invalid
+		m.label_audio.text = _tr( "audio_tracks" )
+	end if
+	OnVisible()
+end sub
+
+function GetCaptionModeTranslation( caption_mode as string ) as string
+	if caption_mode = "On" then return _tr( "on" )
+	if caption_mode = "Off" then return _tr( "off" )
+	if caption_mode = "Instant replay" then return _tr( "instant_replay" )
+	if caption_mode = "When mute" then return _tr( "when_mute" )
+	return caption_mode
+end function
 
 function GetCaptionModeIndexFromString( caption_mode_string as string )
 '{
@@ -207,7 +230,7 @@ sub OnVisible()
 		'{
 			m.current_caption_mode = GetCaptionModeIndexFromString( m.top.video.globalCaptionMode )
 
-			m.caption_modes.text = "[" + m.top.video.globalCaptionMode + "]"
+			m.caption_modes.text = "[" + GetCaptionModeTranslation( m.top.video.globalCaptionMode ) + "]"
 
 			current_subtitle_track = -1
 
@@ -242,7 +265,7 @@ sub OnVisible()
 			else
 			'{
 				m.current_subtitle_track = 0
-				m.subtitle_tracks.text = "[Not Available]"
+				m.subtitle_tracks.text = _tr( "not_available" )
 			'}
 			end if
 
@@ -272,7 +295,7 @@ sub OnVisible()
 			else
 			'{
 				current_audio_track = 0
-				m.audio_tracks.text = "[Not Available]"
+				m.audio_tracks.text = _tr( "not_available" )
 			'}
 			end if
 		'}
@@ -375,11 +398,11 @@ sub HandleOptionSelection( selection_type as integer )
 			caption_mode = GetCaptionModeStringFromIndex( m.current_caption_mode )
 			if caption_mode = m.top.video.globalCaptionMode
 			'{
-				m.caption_modes.text = "[" + caption_mode + "]"
+				m.caption_modes.text = "[" + GetCaptionModeTranslation( caption_mode ) + "]"
 			'}
 			else
 			'{
-				m.caption_modes.text = caption_mode
+				m.caption_modes.text = GetCaptionModeTranslation( caption_mode )
 			'}
 			end if
 		'}
@@ -440,7 +463,7 @@ function OnKeyEvent( key as string, press as boolean ) as boolean
 				if m.item_selected = 0
 				'{
 					m.top.video.globalCaptionMode = GetCaptionModeStringFromIndex( m.current_caption_mode )
-					m.caption_modes.text = "[" + m.top.video.globalCaptionMode + "]"
+					m.caption_modes.text = "[" + GetCaptionModeTranslation( m.top.video.globalCaptionMode ) + "]"
 				'}
 				else if m.item_selected = 1
 				'{

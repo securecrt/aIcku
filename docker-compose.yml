@@ -1,0 +1,9 @@
+version: '3.1'
+
+services:
+  php:
+    image: php:8.4.2-apache
+    volumes:
+      - ./backend:/var/www/html
+    ports:
+      - "89:80"

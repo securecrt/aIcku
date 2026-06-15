@@ -203,7 +203,7 @@ sub Init()
 	m.panel.translation = [ m.global.overscan_offset_x, m.global.overscan_offset_y + ( m.global.screen_height - height ) ]
 	m.top.AppendChild( m.panel )
 
-	m.top.ObserveField( "visible", "OnVisible" )
+	m.top.ObserveField( "visible", "OnVisible" ) : m.global.ObserveField( "translations", "UpdateLang" )
 
 	' Enable when visible, disable when hidden
 	m.update_timer = CreateObject( "roSGNode", "Timer" )
@@ -242,8 +242,8 @@ sub Init()
 						   "vp8": "VP8",
 						   "vc1": "VC-1",
 						   "wmv": "WMV",
-						   "unknown": "Unknown",
-						   "none": "None" }
+						   "unknown": _tr( "unknown" ),
+						   "none": _tr( "none" ) }
 
 	m.audio_format_map = { "aac": "AAC",
 						   "aac_adif": "AAC-ADIF",
@@ -261,8 +261,8 @@ sub Init()
 						   "vorbis": "Ogg Vorbis",
 						   "wma": "WMA",
 						   "wmapro": "WMA Pro",
-						   "unknown": "Unknown",
-						   "none": "None" }
+						   "unknown": _tr( "unknown" ),
+						   "none": _tr( "none" ) }
 '}
 end sub
 
@@ -399,7 +399,6 @@ sub UpdateProgramInfo()
 '{
 	date_time = CreateObject( "roDateTime" )
 	date_time.Mark()
-	date_time.ToLocalTime()
 	time = date_time.AsSeconds()
 
 	first_time_column_time = time - ( time mod m.column_time_interval )
@@ -408,7 +407,7 @@ sub UpdateProgramInfo()
 
 	if m.top.content <> invalid
 	'{
-		program_name_text = "No information"
+		program_name_text = _tr( "no_information" )
 		program_description_text = ""
 		channel_number_text = ""
 		poster_url = m.top.content.HDPosterUrl
@@ -520,8 +519,10 @@ sub UpdateProgramInfo()
 					end if
 
 					date_time.FromSeconds( start_time )
+					date_time.ToLocalTime()
 					time_string = date_time.asTimeStringLoc( "hh:mm a" ) + " - "
 					date_time.FromSeconds( end_time )
+					date_time.ToLocalTime()
 					time_string = time_string + date_time.asTimeStringLoc( "hh:mm a" ) + " " + chr( 8226 ) + " " + FormatRuntime( end_time - start_time )' + " • "
 
 					release_info.Push( time_string )
@@ -704,11 +705,12 @@ end function
 sub UpdateProgressAndTime()
 '{
 	m.time.Mark()
+	utc_seconds = m.time.AsSeconds()
 	m.time.ToLocalTime()
 	m.current_time.text = m.time.asTimeStringLoc( "short" )
 
 	' Update the info if a new Live TV program is playing.
-	if m.time.AsSeconds() > m.current_program_end_time and m.current_program_end_time <> -1
+	if utc_seconds > m.current_program_end_time and m.current_program_end_time <> -1
 	'{
 		UpdateProgramInfo()
 	'}
@@ -917,3 +919,15 @@ function OnKeyEvent( key as string, press as boolean ) as boolean
 	return true
 '}
 end function
+
+sub UpdateLang()
+	if m.video_format_map <> invalid
+		m.video_format_map.unknown = _tr( "unknown" )
+		m.video_format_map.none = _tr( "none" )
+	end if
+	if m.audio_format_map <> invalid
+		m.audio_format_map.unknown = _tr( "unknown" )
+		m.audio_format_map.none = _tr( "none" )
+	end if
+	UpdateProgramInfo()
+end sub

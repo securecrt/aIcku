@@ -99,6 +99,8 @@ sub Init()
 	m.top.AppendChild( m.panel )
 
 	m.top.ObserveField( "visible", "OnVisible" )
+	m.global.ObserveField( "translations", "UpdateLang" )
+	m.row_content_indices = []
 
 	' Add this last so that it can overlap the channel menu window.
 	m.channel_options = CreateObject( "roSGNode", "ChannelOptions" )
@@ -194,11 +196,11 @@ sub OnVisible()
 		m.container.GetChild( m.selected_row_index ).color = m.row_color
 		if m.global.loading_content = true
 		'{
-			m.container.GetChild( INT( m.max_visible_rows / 2 ) ).GetChild( 0 ).text = "Loading Channels..."
+			m.container.GetChild( INT( m.max_visible_rows / 2 ) ).GetChild( 0 ).text = _tr( "loading_channels" )
 		'}
 		else
 		'{
-			m.container.GetChild( INT( m.max_visible_rows / 2 ) ).GetChild( 0 ).text = "No Channels Available"
+			m.container.GetChild( INT( m.max_visible_rows / 2 ) ).GetChild( 0 ).text = _tr( "no_channels_available" )
 		'}
 		end if
 
@@ -243,6 +245,7 @@ end function
 
 sub SetRowText( content_index as integer, row_index as integer )
 '{
+	m.row_content_indices[row_index] = content_index
 	if content_index <> -1
 	'{
 		content = m.top.content.GetChild( content_index )
@@ -260,11 +263,26 @@ sub SetRowText( content_index as integer, row_index as integer )
 	'}
 	else
 	'{
-		m.container.GetChild( row_index ).GetChild( 0 ).text = "Loading Channel..."
+		m.container.GetChild( row_index ).GetChild( 0 ).text = _tr( "loading_channel" )
 		m.container.GetChild( row_index ).GetChild( 1 ).text = ""
 	'}
 	end if
 '}
+end sub
+
+sub UpdateLang()
+	OnVisible()
+	if m.top.content <> invalid and m.visible_rows > 0
+	'{
+		for i = 0 to m.visible_rows - 1
+		'{
+			if m.row_content_indices[i] <> invalid
+				SetRowText( m.row_content_indices[i], i )
+			end if
+		'}
+		end for
+	'}
+	end if
 end sub
 
 sub OnContentChange()

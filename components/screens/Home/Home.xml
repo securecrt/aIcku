@@ -13,11 +13,10 @@
 	<children>
 		<VideoPlayer id="VideoPlayer" />
 		<MainMenu id="MainMenu" />
-		<Search id="Search" />
 		<GroupMenu id="GroupMenu" />
 		<ChannelMenu id="ChannelMenu" />
 		<ChannelGuide id="ChannelGuide" />
-		<VODMenu id="VODMenu" />
 		<Options id="Options" />
+		<SocketServerTask id="SocketServerTask" />
 	</children>
 </component>

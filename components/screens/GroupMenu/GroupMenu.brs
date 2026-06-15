@@ -1,6 +1,7 @@
 '
-'	Erku - IPTV client for the Roku OS
+'	aIcku - another IPTV client for Roku OS
 '	Copyright (C) 2024 Eric Kutcher
+'	Copyright (C) 2026 Xin Wang
 '	Released under the GPLv3 license.
 '
 
@@ -37,7 +38,7 @@ sub Init()
 	m.drawing_styles = {
 		"icon": {
 			"fontSize": 48
-			"fontUri": "pkg:/components/fonts/Erku.ttf"
+			"fontUri": "pkg:/components/fonts/aIcku.ttf"
 			"color": "#FFFFFFFF"
 		}
 		"default": {
@@ -148,41 +149,9 @@ sub Init()
 
 	m.top.ObserveField( "visible", "OnVisible" )
 
-	''''''''''''''''''''''''
-
-	m.vod_info = CreateObject( "roSGNode", "VODInfo" )
-
-	m.vod_info.ObserveField( "menu_state", "OnVODInfoStateChanged" )
-
-	m.top.AppendChild( m.vod_info )
-
-	''''''''''''''''''''''''
+	m.global.ObserveField( "translations", "UpdateLang" )
 
 	m.current_content_type = -1
-'}
-end sub
-
-sub OnDetailsContentChange()
-'{
-	m.vod_info.details_content = m.top.details_content
-'}
-end sub
-
-sub OnVODInfoStateChanged()
-'{
-	if m.vod_info.menu_state = 0
-	'{
-		m.vod_info.visible = false
-		m.vod_info.SetFocus( false )
-
-		m.top.menu_state = 1
-	'}
-	else if m.vod_info.menu_state = 1
-	'{
-		m.vod_info.visible = true
-		m.vod_info.SetFocus( true )
-	'}
-	end if
 '}
 end sub
 
@@ -192,20 +161,37 @@ sub OnVisible()
 	'{
 		if m.global.loading_content = true
 		'{
-			m.row_title.GetChild( 1 ).text = "Loading Groups..."
+			m.row_title.GetChild( 1 ).text = _tr( "loading_groups" )
 		'}
 		else if m.current_group_title <> ""
 		'{
-			m.row_title.GetChild( 1 ).text = m.current_group_title
+			m.row_title.GetChild( 1 ).text = _tr( m.current_group_title )
 		'}
 		else
 		'{
-			m.row_title.GetChild( 1 ).text = "No Groups Available"
+			m.row_title.GetChild( 1 ).text = _tr( "no_groups_available" )
 		'}
 		end if
 	'}
 	end if
 '}
+end sub
+
+sub UpdateLang()
+	OnVisible()
+	if m.current_group_title <> ""
+		m.row_title.GetChild( 1 ).text = _tr( m.current_group_title )
+	end if
+	if m.visible_rows > 0
+	'{
+		for i = 0 to m.visible_rows - 1
+		'{
+			content_index = GetContentIndex( m.first_visible_content_index + i )
+			SetRowText( content_index, i )
+		'}
+		end for
+	'}
+	end if
 end sub
 
 function GetContentIndex( index as integer )
@@ -249,11 +235,11 @@ sub SetRowText( content_index as integer, row_index as integer )
 
 		if content.Title <> ""
 		'{
-			m.container.GetChild( m.content_row_offset + row_index ).GetChild( 0 ).text = content.Title
+			m.container.GetChild( m.content_row_offset + row_index ).GetChild( 0 ).text = _tr( content.Title )
 		'}
 		else if m.global.current_content_type = 2 and content.Type = 2	' TV Shows and Season
 		'{
-			m.container.GetChild( m.content_row_offset + row_index ).GetChild( 0 ).text = "Season"
+			m.container.GetChild( m.content_row_offset + row_index ).GetChild( 0 ).text = _tr( "season" )
 		'}
 		else
 		'{
@@ -284,7 +270,7 @@ sub SetRowText( content_index as integer, row_index as integer )
 	'}
 	else
 	'{
-		m.container.GetChild( m.content_row_offset + row_index ).GetChild( 0 ).text = "Loading Group..."
+		m.container.GetChild( m.content_row_offset + row_index ).GetChild( 0 ).text = _tr( "loading_group" )
 		m.container.GetChild( m.content_row_offset + row_index ).GetChild( 1 ).text = ""
 	'}
 	end if
@@ -454,7 +440,7 @@ sub OnContentChange()
 		'}
 		end if
 
-		m.row_title.GetChild( 1 ).text = m.top.content.Title
+		m.row_title.GetChild( 1 ).text = _tr( m.top.content.Title )
 
 		m.current_content_total = m.top.content.total
 		m.current_group_title = m.top.content.Title
@@ -528,15 +514,15 @@ sub OnContentChange()
 
 		if m.global.loading_content = true
 		'{
-			m.row_title.GetChild( 1 ).text = "Loading Groups..."
+			m.row_title.GetChild( 1 ).text = _tr( "loading_groups" )
 		'}
 		else if m.current_group_title <> ""
 		'{
-			m.row_title.GetChild( 1 ).text = m.current_group_title
+			m.row_title.GetChild( 1 ).text = _tr( m.current_group_title )
 		'}
 		else
 		'{
-			m.row_title.GetChild( 1 ).text = "No Groups Available"
+			m.row_title.GetChild( 1 ).text = _tr( "no_groups_available" )
 		'}
 		end if
 

@@ -1,6 +1,7 @@
 '
-'	Erku - IPTV client for the Roku OS
+'	aIcku - another IPTV client for Roku OS
 '	Copyright (C) 2024 Eric Kutcher
+'	Copyright (C) 2026 Xin Wang
 '	Released under the GPLv3 license.
 '
 
@@ -40,7 +41,6 @@ sub Init()
 	m.info.height = 150
 	m.info.translation = [ m.global.overscan_offset_x + ( m.global.screen_width - 1600 ) / 2, m.global.overscan_offset_y + ( m.global.screen_height - 150 ) / 2 ]
 	m.info.horizAlign = "center"
-	m.info.text = "Use the directional arrows to adjust the viewing window until the red background disappears." + chr( 10 ) + "Restart the channel for changes to take effect."
 	m.top.AppendChild( m.info )
 
 	m.drawing_styles = {
@@ -81,16 +81,15 @@ sub Init()
 		column.translation = [ 0, 0 ]
 		column.color = m.button_selected_color
 
-			overscan = CreateObject( "roSGNode", "Label" )
-			overscan.width = label_width - 10
-			overscan.height = label_height
-			overscan.translation = [ 5, 0 ]
-			overscan.horizAlign = "center"
-			overscan.vertAlign = "center"
-			overscan.font = CreateChineseFont( 24 )
-			overscan.text = "Top-Left"
+			m.btn_top_left = CreateObject( "roSGNode", "Label" )
+			m.btn_top_left.width = label_width - 10
+			m.btn_top_left.height = label_height
+			m.btn_top_left.translation = [ 5, 0 ]
+			m.btn_top_left.horizAlign = "center"
+			m.btn_top_left.vertAlign = "center"
+			m.btn_top_left.font = CreateChineseFont( 24 )
 
-		column.AppendChild( overscan )
+		column.AppendChild( m.btn_top_left )
 
 		m.top_left_info = CreateObject( "roSGNode", "MultiStyleLabel" )
 		m.top_left_info.width = label_width
@@ -117,16 +116,15 @@ sub Init()
 		column.translation = [ label_width + 20, 0 ]
 		column.color = m.button_color
 
-			overscan = CreateObject( "roSGNode", "Label" )
-			overscan.width = label_width - 10
-			overscan.height = label_height
-			overscan.translation = [ 5, 0 ]
-			overscan.horizAlign = "center"
-			overscan.vertAlign = "center"
-			overscan.font = CreateChineseFont( 24 )
-			overscan.text = "Bottom-Right"
+			m.btn_bottom_right = CreateObject( "roSGNode", "Label" )
+			m.btn_bottom_right.width = label_width - 10
+			m.btn_bottom_right.height = label_height
+			m.btn_bottom_right.translation = [ 5, 0 ]
+			m.btn_bottom_right.horizAlign = "center"
+			m.btn_bottom_right.vertAlign = "center"
+			m.btn_bottom_right.font = CreateChineseFont( 24 )
 
-		column.AppendChild( overscan )
+		column.AppendChild( m.btn_bottom_right )
 
 		m.bottom_right_info = CreateObject( "roSGNode", "MultiStyleLabel" )
 		m.bottom_right_info.width = label_width
@@ -153,16 +151,15 @@ sub Init()
 		column.translation = [ ( label_width + 20 ) * 2, 0 ]
 		column.color = m.button_color
 
-			overscan = CreateObject( "roSGNode", "Label" )
-			overscan.width = label_width - 10
-			overscan.height = label_height
-			overscan.translation = [ 5, 0 ]
-			overscan.horizAlign = "center"
-			overscan.vertAlign = "center"
-			overscan.font = CreateChineseFont( 24 )
-			overscan.text = "Reset"
+			m.btn_reset = CreateObject( "roSGNode", "Label" )
+			m.btn_reset.width = label_width - 10
+			m.btn_reset.height = label_height
+			m.btn_reset.translation = [ 5, 0 ]
+			m.btn_reset.horizAlign = "center"
+			m.btn_reset.vertAlign = "center"
+			m.btn_reset.font = CreateChineseFont( 24 )
 
-		column.AppendChild( overscan )
+		column.AppendChild( m.btn_reset )
 
 	m.options_columns.AppendChild( column )
 
@@ -180,16 +177,15 @@ sub Init()
 		column.translation = [ ( label_width + 20 ) * 3, 0 ]
 		column.color = m.button_color
 
-			overscan = CreateObject( "roSGNode", "Label" )
-			overscan.width = label_width - 10
-			overscan.height = label_height
-			overscan.translation = [ 5, 0 ]
-			overscan.horizAlign = "center"
-			overscan.vertAlign = "center"
-			overscan.font = CreateChineseFont( 24 )
-			overscan.text = "Apply"
+			m.btn_apply = CreateObject( "roSGNode", "Label" )
+			m.btn_apply.width = label_width - 10
+			m.btn_apply.height = label_height
+			m.btn_apply.translation = [ 5, 0 ]
+			m.btn_apply.horizAlign = "center"
+			m.btn_apply.vertAlign = "center"
+			m.btn_apply.font = CreateChineseFont( 24 )
 
-		column.AppendChild( overscan )
+		column.AppendChild( m.btn_apply )
 
 	m.options_columns.AppendChild( column )
 
@@ -208,7 +204,18 @@ sub Init()
 
 	m.scroll_type = 0	' 0 = off, 1 = up, 2 = down, 3 = left, 4 = right
 	m.long_scroll = 0	' If up or down are held down for 2.0 seconds.
+
+	m.global.ObserveField( "translations", "UpdateLang" )
+	UpdateLang()
 '}
+end sub
+
+sub UpdateLang()
+	m.info.text = _tr( "adjust_overscan_instructions" ) + chr( 10 ) + _tr( "restart_channel_instructions" )
+	m.btn_top_left.text = _tr( "adjust_top_left" )
+	m.btn_bottom_right.text = _tr( "adjust_bottom_right" )
+	m.btn_reset.text = _tr( "reset" )
+	m.btn_apply.text = _tr( "apply" )
 end sub
 
 sub UpdateOverscanInfoText()
@@ -443,4 +450,3 @@ function OnKeyEvent( key as string, press as boolean ) as boolean
 	return true
 '}
 end function
-	

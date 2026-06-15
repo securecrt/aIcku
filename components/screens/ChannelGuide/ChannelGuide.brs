@@ -76,7 +76,7 @@ sub Init()
 	m.last_first_time_column_time = m.first_time_column_time
 	m.last_time = m.first_time_column_time
 
-	m.top.ObserveField( "visible", "OnVisible" )
+	m.top.ObserveField( "visible", "OnVisible" ) : m.global.ObserveField( "translations", "UpdateLang" )
 
 	m.panel = CreateObject( "roSGNode", "Rectangle" )
 	m.panel.color = "#00000000"
@@ -462,11 +462,11 @@ sub OnVisible()
 		m.channels.GetChild( INT( m.max_visible_rows / 2 ) ).GetChild( 0 ).repeatCount = -1
 		if m.global.loading_epg = true
 		'{
-			m.channels.GetChild( INT( m.max_visible_rows / 2 ) ).GetChild( 0 ).text = "Loading Guide..."
+			m.channels.GetChild( INT( m.max_visible_rows / 2 ) ).GetChild( 0 ).text = _tr( "loading_guide" )
 		'}
 		else
 		'{
-			m.channels.GetChild( INT( m.max_visible_rows / 2 ) ).GetChild( 0 ).text = "Guide Not Available"
+			m.channels.GetChild( INT( m.max_visible_rows / 2 ) ).GetChild( 0 ).text = _tr( "guide_not_available" )
 		'}
 		end if
 
@@ -507,9 +507,7 @@ end function
 function GetOffsetTime( offset as integer )
 '{
 	m.date_time.Mark()
-	m.date_time.ToLocalTime()
-	time = m.date_time.FromSeconds( m.date_time.AsSeconds() + offset )
-	time = m.date_time.AsSeconds()
+	time = m.date_time.AsSeconds() + offset
 	return time - ( time mod m.column_time_interval )   ' Get the current time in 30 minute intervals ( 4:00, 4:30, 5:00, etc.)
 '}
 end function
@@ -517,7 +515,6 @@ end function
 sub UpdateTimeBar()
 '{
 	m.date_time.Mark()
-	m.date_time.ToLocalTime()
 
 	current_time = m.date_time.AsSeconds()
 
@@ -599,6 +596,7 @@ sub UpdateTimeBar()
 	end if
 
 	m.date_time.FromSeconds( current_time + m.time_bar_time_offset )
+	m.date_time.ToLocalTime()
 	m.time_bar.GetChild( 0 ).GetChild( 0 ).text = m.date_time.asDateStringLoc( "EEE, MMM d" )
 
 	for i = 1 to m.column_count
@@ -606,6 +604,7 @@ sub UpdateTimeBar()
 		if i > 1 or m.time_bar_time_offset > 0
 		'{
 			m.date_time.FromSeconds( time )
+			m.date_time.ToLocalTime()
 		'}
 		end if
 
@@ -825,7 +824,7 @@ function UpdatePrograms( row_index as integer, content_index as integer )
 		index = program_info_state.index
 		program_index_offset = program_info_state.index_offset
 
-		text = "No information"
+		text = _tr( "no_information" )
 
 		last_program_index = m.top.content.GetChild( content_index ).GetChildCount() - 1
 
@@ -860,7 +859,7 @@ function UpdatePrograms( row_index as integer, content_index as integer )
 				end_time = start_time
 				start_time = last_end_time
 
-				text = "No information"
+				text = _tr( "no_information" )
 
 				program_index_offset--
 
@@ -904,7 +903,7 @@ function UpdatePrograms( row_index as integer, content_index as integer )
 
 	if last_x < width
 	'{
-		UpdateProgramValues( row_index, program_index, "No information", last_x, width )
+		UpdateProgramValues( row_index, program_index, _tr( "no_information" ), last_x, width )
 
 		program_index++
 
@@ -915,7 +914,7 @@ function UpdatePrograms( row_index as integer, content_index as integer )
 	program_count = m.programs.GetChild( row_index ).GetChildCount()
 	while program_index < program_count
 	'{
-		UpdateProgramValues( row_index, program_index, "No information", last_x, width )
+		UpdateProgramValues( row_index, program_index, _tr( "no_information" ), last_x, width )
 
 		program_index++
 
@@ -971,7 +970,7 @@ sub UpdateProgramInfo( content_index as integer, program_index as integer, start
 			'}
 			else
 			'{
-				m.program_name.text = "No information"
+				m.program_name.text = _tr( "no_information" )
 				m.program_description.text = ""
 			'}
 			end if
@@ -981,8 +980,10 @@ sub UpdateProgramInfo( content_index as integer, program_index as integer, start
 			'{
 				date = CreateObject( "roDateTime" )
 				date.FromSeconds( start_time )
+				date.ToLocalTime()
 				time_string = date.asTimeStringLoc( "hh:mm a" ) + " - "
 				date.FromSeconds( end_time )
+				date.ToLocalTime()
 				time_string = time_string + date.asTimeStringLoc( "hh:mm a" ) + " " + chr( 8226 ) + " " + FormatRuntime( end_time - start_time ) + " " + chr( 8226 ) + " "
 			'}
 			end if
@@ -1224,11 +1225,11 @@ sub OnContentChange()
 		m.channels.GetChild( INT( m.max_visible_rows / 2 ) ).GetChild( 0 ).repeatCount = -1
 		if m.global.loading_epg = true
 		'{
-			m.channels.GetChild( INT( m.max_visible_rows / 2 ) ).GetChild( 0 ).text = "Loading Guide..."
+			m.channels.GetChild( INT( m.max_visible_rows / 2 ) ).GetChild( 0 ).text = _tr( "loading_guide" )
 		'}
 		else
 		'{
-			m.channels.GetChild( INT( m.max_visible_rows / 2 ) ).GetChild( 0 ).text = "Guide Not Available"
+			m.channels.GetChild( INT( m.max_visible_rows / 2 ) ).GetChild( 0 ).text = _tr( "guide_not_available" )
 		'}
 		end if
 
@@ -1913,3 +1914,10 @@ function OnKeyEvent( key as string, press as boolean ) as boolean
 	return handled
 '}
 end function
+
+sub UpdateLang()
+	OnVisible()
+	if m.top.content <> invalid
+		OnContentChange()
+	end if
+end sub

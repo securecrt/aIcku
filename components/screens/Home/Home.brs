@@ -1,20 +1,21 @@
 '
-'	Erku - IPTV client for the Roku OS
+'	aIcku - another IPTV client for Roku OS
 '	Copyright (C) 2024 Eric Kutcher
+'	Copyright (C) 2026 Xin Wang
 '	Released under the GPLv3 license.
 '
 
 sub Init()
 '{
+	m.pending_play_content = invalid
+	m.pending_play_index = -2
+
 	m.current_main_menu_content_index = -1	' Used to determine whether we need to load the Live TV, Movies, or TV Shows groups.
-	m.current_search_content_type = -1		' The content type of the last search that was performed.
 
 	m.main_menu = m.top.FindNode( "MainMenu" )
-	m.search = m.top.FindNode( "Search" )
 	m.group_menu = m.top.FindNode( "GroupMenu" )
 	m.channel_menu = m.top.FindNode( "ChannelMenu" )
 	m.channel_guide = m.top.FindNode( "ChannelGuide" )
-	m.vod_menu = m.top.FindNode( "VODMenu" )
 	m.options = m.top.FindNode( "Options" )
 
 	m.video_player = m.top.FindNode( "VideoPlayer" )
@@ -28,26 +29,34 @@ sub Init()
 	m.current_menu = m.main_menu
 
 	m.main_menu.ObserveField( "menu_state", "OnMainMenuStateChanged" )
-	m.search.ObserveField( "menu_state", "OnSearchStateChanged" )
 	m.group_menu.ObserveField( "menu_state", "OnGroupMenuStateChanged" )
 	m.channel_menu.ObserveField( "menu_state", "OnChannelMenuStateChanged" )
 	m.channel_guide.ObserveField( "menu_state", "OnChannelGuideStateChanged" )
-	m.vod_menu.ObserveField( "menu_state", "OnVODMenuStateChanged" )
 	m.options.ObserveField( "menu_state", "OnOptionsStateChanged" )
 
 	m.main_menu.ObserveField( "content_index", "OnMainMenuItemSelected" )
 	m.group_menu.ObserveField( "content_index", "OnGroupContentChange" )
 	m.channel_menu.ObserveField( "content_index", "OnChannelSelected" )
 	m.channel_guide.ObserveField( "content_index", "OnGuideChannelSelected" )
-	m.vod_menu.ObserveField( "content_index", "OnVODSelected" )
 
 	m.group_menu.ObserveField( "update_content", "OnUpdateGroupContent" )
 	m.channel_menu.ObserveField( "update_content", "OnUpdateChannelContent" )
-	m.vod_menu.ObserveField( "update_content", "OnUpdateVODContent" )
 	m.channel_guide.ObserveField( "update_content", "OnUpdateEPGContent" )
 
 	m.video_player.video.ObserveField( "state", "OnVideoStateChange" )
 	m.video_player.video.ObserveField( "globalCaptionMode", "OnGlobalCaptionModeChange" )
+	m.global.ObserveField( "parental_control_active", "OnParentalControlActiveChange" )
+	m.global.ObserveField( "translations", "UpdateLang" )
+
+	m.socket_server = m.top.FindNode( "SocketServerTask" )
+	m.socket_server.ObserveField( "control_command", "OnServerControlCommand" )
+	m.socket_server.control = "run"
+
+	m.epg_update_timer = CreateObject( "roSGNode", "Timer" )
+	m.epg_update_timer.repeat = true
+	m.epg_update_timer.duration = 30
+	m.epg_update_timer.ObserveField( "fire", "UpdateSocketServerTitle" )
+	m.epg_update_timer.control = "start"
 
 	''''''''''''''''''''''''
 
@@ -78,8 +87,6 @@ sub Init()
 	m.video_content_type = -1
 
 	''''''''''''''''''''''''
-
-	m.loading_search_content = false
 
 	m.show_channel_menu = true	' We can turn it off when loading an inputted/resuming channel number.
 
@@ -118,36 +125,6 @@ sub OnMainMenuStateChanged()
 	'{
 		m.main_menu.visible = true
 		m.main_menu.SetFocus( true )
-	'}
-	end if
-'}
-end sub
-
-sub OnSearchStateChanged()
-'{
-	if m.search.menu_state = 0
-	'{
-		' The Search menu could have been opened from within the Group menu and m.current_main_menu_content_index will have been set to 0.
-		' If we close the Search menu without performing a search, then reset m.current_main_menu_content_index.
-		if m.global.current_content_type <> -1
-		'{
-			m.current_main_menu_content_index = m.global.current_content_type + 1
-		'}
-		else	' No content has been loaded yet.
-		'{
-			m.current_main_menu_content_index = -1
-		'}
-		end if
-
-		m.search.visible = false
-
-		' This will either be the Main menu, or the Group menu.
-		m.current_menu.menu_state = 1
-	'}
-	else if m.search.menu_state = 1
-	'{
-		m.search.visible = true
-		m.search.SetFocus( true )
 	'}
 	end if
 '}
@@ -217,29 +194,6 @@ sub OnChannelGuideStateChanged()
 '}
 end sub
 
-sub OnVODMenuStateChanged()
-'{
-	m.current_menu = m.vod_menu
-
-	if m.vod_menu.menu_state = 0
-	'{
-		m.vod_menu.visible = false
-		m.video_player.SetFocus( true )
-	'}
-	else if m.vod_menu.menu_state = 1
-	'{
-		m.vod_menu.visible = true
-		m.vod_menu.SetFocus( true )
-	'}
-	else if m.vod_menu.menu_state = -1
-	'{
-		m.vod_menu.visible = false
-
-		m.group_menu.menu_state = 1
-	'}
-	end if
-'}
-end sub
 
 sub OnOptionsStateChanged()
 '{
@@ -269,20 +223,12 @@ sub OnMainMenuItemSelected()
 	m.current_menu = m.main_menu
 	m.main_menu.visible = false
 
-	' 1 = Live TV, 2 = Movies, 3 = TV Shows
-	if m.main_menu.content_index = 1 or m.main_menu.content_index = 2 or m.main_menu.content_index = 3
+	if m.main_menu.content_index = 0 ' Live TV
 	'{
 		' If the current menu is different from the last one that we were in, then we need to request the new menu's group content.
 		if m.current_main_menu_content_index <> m.main_menu.content_index
 		'{
-			if ( m.main_menu.content_index = 2 or m.main_menu.content_index = 3 ) and m.vod_menu.content <> invalid
-			'{
-				' Reset so the content isn't cached.
-				m.vod_menu.content = invalid
-			'}
-			end if
-
-			m.global.current_content_type = m.main_menu.content_index - 1
+			m.global.current_content_type = 0
 
 			m.top.content = invalid
 			m.top.group_content = invalid
@@ -298,13 +244,7 @@ sub OnMainMenuItemSelected()
 
 		m.group_menu.menu_state = 1	' Show
 	'}
-	else if m.main_menu.content_index = 0	' Search
-	'{
-		m.current_main_menu_content_index = m.main_menu.content_index
-
-		m.search.menu_state = 1	' Show
-	'}
-	else if m.main_menu.content_index = 4	' Options
+	else if m.main_menu.content_index = 1	' Options
 	'{
 		m.options.menu_state = 1	' Show
 	'}
@@ -319,23 +259,7 @@ sub OnGroupContentChange()
 		' We don't know if this ID is for group or channel/VOD content, but it'll be determined when the request is fulfilled.
 		m.global.request_id = m.group_menu.content.GetChild( m.group_menu.content_index ).group_id
 
-		' If the Search group was selected and a search hadn't been performed for the current content type (Live TV, Movies, TV Shows), then open the Search menu.
-		if m.global.request_id = 5 and m.current_search_content_type <> m.global.current_content_type
-		'{
-			m.group_menu.menu_state = 0	' Hide
-
-			m.current_main_menu_content_index = 0
-
-			m.search.search_type = m.global.current_content_type
-			m.search.menu_state = 1	' Show
-		'}
-		else if m.current_main_menu_content_index = 1 and ( m.channel_menu.content = invalid or m.channel_menu.content <> invalid and m.channel_menu.content.group_id <> m.global.request_id )
-		'{
-			m.global.loading_content = true
-			m.global.content_offset = -( Int( m.global.content_limit / 2 ) )
-			m.global.load_request = true
-		'}
-		else if ( m.current_main_menu_content_index = 2 or m.current_main_menu_content_index = 3 ) and ( m.vod_menu.content = invalid or m.vod_menu.content <> invalid and m.vod_menu.content.group_id <> m.global.request_id )
+		if m.current_main_menu_content_index = 0 and ( m.channel_menu.content = invalid or m.channel_menu.content <> invalid and m.channel_menu.content.group_id <> m.global.request_id )
 		'{
 			m.global.loading_content = true
 			m.global.content_offset = -( Int( m.global.content_limit / 2 ) )
@@ -346,13 +270,9 @@ sub OnGroupContentChange()
 			m.current_menu = m.group_menu
 			m.group_menu.visible = false
 
-			if m.current_main_menu_content_index = 1
+			if m.current_main_menu_content_index = 0
 			'{
 				m.channel_menu.menu_state = 1	' Show
-			'}
-			else if m.current_main_menu_content_index = 2 or m.current_main_menu_content_index = 3
-			'{
-				m.vod_menu.menu_state = 1		' Show
 			'}
 			end if
 		'}
@@ -390,20 +310,6 @@ sub OnUpdateChannelContent()
 
 		m.global.loading_content = true
 		m.global.content_offset = m.channel_menu.content_offset
-		m.global.load_content_chunk = true
-	'}
-	end if
-'}
-end sub
-
-sub OnUpdateVODContent()
-'{
-	if m.vod_menu.update_content = true
-	'{
-		m.vod_menu.update_content = false
-
-		m.global.loading_content = true
-		m.global.content_offset = m.vod_menu.content_offset
 		m.global.load_content_chunk = true
 	'}
 	end if
@@ -448,33 +354,6 @@ sub OnLoadGroupContent()
 		m.global.content_offset = -( Int( m.global.content_limit / 2 ) )
 		m.global.load_request = true
 	'}
-	else if m.loading_search_content = true	' Group content has been returned from a search request.
-	'{
-		m.loading_search_content = false
-
-		m.group_menu.content = m.top.group_content
-
-		m.current_main_menu_content_index = m.global.current_content_type + 1
-
-		m.search.visible = false
-
-		m.group_menu.menu_state = 1		' Show
-	'}
-	else if m.current_main_menu_content_index = 0	' We're starting a search and need the parent group (Live TV, Movies, or TV Shows) first.
-	'{
-		' Allows us to open the Search menu if we've navigated to a Search group, but haven't initiated a search yet.
-		m.current_search_content_type = m.global.current_content_type
-
-		m.loading_search_content = true
-
-		m.group_menu.content = m.top.group_content
-
-		' Now that we have the parent group set, perform the search request.
-		m.global.request_id = 5	' The Search group.
-		m.global.loading_content = true
-		m.global.content_offset = -( Int( m.global.content_limit / 2 ) )
-		m.global.load_request = true
-	'}
 	else	' For every other request, set the group menu's group content.
 	'{
 		m.group_menu.content = m.top.group_content
@@ -488,7 +367,6 @@ sub OnLoadContent()
 	m.global.loading_content = false
 
 	m.loading_channel = false
-	m.loading_search_content = false
 
 	if m.top.content <> invalid
 	'{
@@ -499,7 +377,7 @@ sub OnLoadContent()
 		'}
 		end if
 
-		if m.current_main_menu_content_index = 1
+		if m.current_main_menu_content_index = 0
 		'{
 			' Have we changed groups? If so, then clear the guide.
 			clear_guide = false
@@ -555,35 +433,6 @@ sub OnLoadContent()
 			'}
 			end if
 		'}
-		else if m.current_main_menu_content_index = 2 or m.current_main_menu_content_index = 3
-		'{
-			m.vod_menu.content = m.top.content
-
-			m.vod_menu.menu_state = 1	' Show
-		'}
-		else if m.current_main_menu_content_index = 0	' Search results.
-		'{
-			' The menu associated with the search type.
-			' Don't set m.main_menu.content_index as that will load the group menu and we may not want that openend.
-			m.current_main_menu_content_index = m.global.current_content_type + 1
-
-			m.search.visible = false
-
-			if m.global.current_content_type = 0		' Live TV
-			'{
-				m.channel_menu.content = m.top.content
-				m.channel_guide.content = invalid
-
-				m.channel_menu.menu_state = 1	' Show
-			'}
-			else if m.global.current_content_type = 1 or m.global.current_content_type = 2	' Movies/TV Shows
-			'{
-				m.vod_menu.content = m.top.content
-
-				m.vod_menu.menu_state = 1		' Show
-			'}
-			end if
-		'}
 		end if
 	'}
 	end if
@@ -597,6 +446,8 @@ sub OnLoadEPGContent()
 	m.global.loading_epg = false
 
 	m.channel_guide.content = m.top.epg_content
+
+    UpdateSocketServerTitle()
 
 	if m.channel_guide.refresh = true
 	'{
@@ -614,11 +465,7 @@ sub OnLoadDetailsContent()
 
 	m.global.loading_details = 0
 
-	if loading_details = 1			' Loading details for VOD menu.
-	'{
-		m.vod_menu.details_content = m.top.details_content
-	'}
-	else if loading_details = 2		' Loading details for video player info.
+	if loading_details = 2		' Loading details for video player info.
 	'{
 		m.video_player.details_content = m.top.details_content
 	'}
@@ -638,31 +485,17 @@ sub OnLoadChannelContent()
 	'{
 		m.global.current_content_type = 0	' Live TV
 
-		m.current_main_menu_content_index = 1	' Live TV
+		m.current_main_menu_content_index = 0	' Live TV
 
 		''''''''''''''''''''''''
 
 		' Play the TV channel that was last played.
 		content = channel_content.GetChild( 0 )
 
-		m.video_player.content = content
+		m.pending_play_content = content
+		m.pending_play_index = -1
 
-		m.video_player.video.content.Title = content.Title
-		m.video_player.video.content.Url = content.Url
-		m.video_player.video.content.StreamFormat = content.StreamFormat
-		m.video_player.video.content.HttpHeaders = content.HttpHeaders
-
-		if m.video_content_type = 0	' Live TV
-		'{
-			m.video_player.video.content.SubtitleConfig = { TrackName: "eia608/1" }	' Closed captioning.
-		'}
-		else
-		'{
-			m.video_player.video.content.SubtitleConfig = content.SubtitleConfig
-		'}
-		end if
-
-		m.video_player.video.control = "play"
+		m.global.check_parental_control = true
 
 		''''''''''''''''''''''''
 
@@ -726,6 +559,8 @@ end sub
 
 sub OnVideoStateChange()
 '{
+    UpdateSocketServerTitle()
+
 	if m.video_player.video.state = "stopped" or m.video_player.video.state = "finished" or m.video_player.video.state = "error"
 	'{
 		' If the channel guide is open and we play a video that stops/fails, then we want to keep the guide open and not display the previously opened menu.
@@ -770,41 +605,10 @@ end sub
 
 sub PlayVideoContent( content as object, content_index as integer )
 '{
-	if content <> invalid and content_index >= 0 and content.GetChildCount() > content_index
-	'{
-		content = content.GetChild( content_index )
+	m.pending_play_content = content
+	m.pending_play_index = content_index
 
-		' Resume VOD Movies and TV Shows if they errored.
-		if ( m.video_content_type = 1 or m.video_content_type = 2 ) and ( m.video_player.content <> invalid and m.video_player.content.isSameNode( content ) and m.video_player.video.state = "error" )
-		'{
-			m.video_player.resume = true
-		'}
-		else
-		'{
-			m.video_content_type = m.global.current_content_type
-
-			m.video_player.content = content
-
-			m.video_player.video.content.Title = content.Title
-			m.video_player.video.content.Url = content.Url
-			m.video_player.video.content.StreamFormat = content.StreamFormat
-			m.video_player.video.content.HttpHeaders = content.HttpHeaders
-
-			if m.video_content_type = 0	' Live TV
-			'{
-				m.video_player.video.content.SubtitleConfig = { TrackName: "eia608/1" }	' Closed captioning.
-			'}
-			else
-			'{
-				m.video_player.video.content.SubtitleConfig = content.SubtitleConfig
-			'}
-			end if
-
-			m.video_player.video.control = "play"
-		'}
-		end if
-	'}
-	end if
+	m.global.check_parental_control = true
 '}
 end sub
 
@@ -820,12 +624,6 @@ sub OnGuideChannelSelected()
 '}
 end sub
 
-sub OnVODSelected()
-'{
-	PlayVideoContent( m.vod_menu.content, m.vod_menu.content_index )
-'}
-end sub
-
 sub OnTVIsOff()
 '{
 	' Triggered from the main thread when the TV is turned off. HDMI is detected as being unplugged.
@@ -836,10 +634,6 @@ sub OnTVIsOff()
 		if m.video_content_type = 0	' Live TV
 		'{
 			m.video_player.video.control = "stop"
-		'}
-		else if m.video_content_type = 1 or m.video_content_type = 2	' Movies/TV Shows
-		'{
-			m.video_player.video.control = "pause"
 		'}
 		end if
 	'}
@@ -908,7 +702,7 @@ function OnKeyEvent( key as string, press as boolean ) as boolean
 		'}
 		else if key = "right"
 		'{
-			if m.current_main_menu_content_index = 1 ' Only show the guide if it's for Live TV.
+			if m.current_main_menu_content_index = 0 ' Only show the guide if it's for Live TV.
 			'{
 				m.current_menu.visible = false	' Retain the current menu's state.
 
@@ -926,7 +720,7 @@ function OnKeyEvent( key as string, press as boolean ) as boolean
 		'}
 		else if key = "replay"
 		'{
-			if m.current_main_menu_content_index = 1 ' Only switch channel numbers if it's for Live TV.
+			if m.current_main_menu_content_index = 0 ' Only switch channel numbers if it's for Live TV.
 			'{
 				channel_number_group_id = m.global.last_channel_group_id
 				channel_number = m.global.last_channel_number
@@ -951,7 +745,7 @@ function OnKeyEvent( key as string, press as boolean ) as boolean
 		'}
 		else if key = "Lit_1" or key = "Lit_2" or key = "Lit_3" or key = "Lit_4" or key = "Lit_5" or key = "Lit_6" or key = "Lit_7" or key = "Lit_8" or key = "Lit_9" or key = "Lit_0"
 		'{
-			if m.current_main_menu_content_index = 1 ' Only show channel numbers if it's for Live TV.
+			if m.current_main_menu_content_index = 0 ' Only show channel numbers if it's for Live TV.
 			'{
 				m.channel_number.text = m.channel_number.text + Right( key, 1 )
 				m.channel_number_background.width = m.channel_number.boundingRect()[ "width" ] + 20
@@ -970,4 +764,220 @@ function OnKeyEvent( key as string, press as boolean ) as boolean
 
 	return true
 '}
+end function
+
+sub ActuallyPlayVideoContent( content as object, content_index as integer )
+'{
+	if content <> invalid and content_index >= 0 and content.GetChildCount() > content_index
+	'{
+		content = content.GetChild( content_index )
+
+		' Resume VOD Movies and TV Shows if they errored.
+		if ( m.video_content_type = 1 or m.video_content_type = 2 ) and ( m.video_player.content <> invalid and m.video_player.content.isSameNode( content ) and m.video_player.video.state = "error" )
+		'{
+			m.video_player.resume = true
+		'}
+		else
+		'{
+			m.video_content_type = m.global.current_content_type
+
+			m.video_player.content = content
+
+			m.video_player.video.content.Title = content.Title
+			m.video_player.video.content.Url = content.Url
+			m.video_player.video.content.StreamFormat = content.StreamFormat
+			m.video_player.video.content.HttpHeaders = content.HttpHeaders
+
+			if m.video_content_type = 0	' Live TV
+			'{
+				m.video_player.video.content.SubtitleConfig = { TrackName: "eia608/1" }	' Closed captioning.
+			'}
+			else
+			'{
+				m.video_player.video.content.SubtitleConfig = content.SubtitleConfig
+			'}
+			end if
+
+			m.video_player.video.control = "play"
+		'}
+		end if
+	'}
+	end if
+'}
+end sub
+
+sub OnParentalControlActiveChange()
+'{
+    if m.global.parental_control_active = true
+    '{
+        ' Immediately stop any active playback
+        if m.video_player.video.state = "playing" or m.video_player.video.state = "paused" or m.video_player.video.state = "buffering"
+        '{
+            m.video_player.video.control = "stop"
+        '}
+        end if
+
+        ' Show parental control dialog
+        dialog = CreateObject( "roSGNode", "Dialog" )
+        dialog.id = "ParentalControlDialog"
+        dialog.title = _tr( "parental_control_lock" )
+        dialog.titleFont = CreateChineseFont( 36 )
+        dialog.message = _tr( "parental_control_active_msg" )
+        dialog.messageFont = CreateChineseFont( 28 )
+        dialog.buttons = [ "OK" ]
+        
+        buttonGroup = dialog.findNode("buttonGroup")
+        if buttonGroup <> invalid
+            buttonGroup.textFont = CreateChineseFont( 28 )
+            buttonGroup.focusedTextFont = CreateChineseFont( 28 )
+        end if
+        
+        dialog.ObserveField( "buttonSelected", "OnParentalControlDialogClose" )
+        m.top.GetScene().dialog = dialog
+        
+        ' Clear pending play info
+        m.pending_play_content = invalid
+        m.pending_play_index = -2
+    '}
+    else
+    '{
+        ' Dismiss lock dialog if active
+        scene = m.top.GetScene()
+        if scene.dialog <> invalid and scene.dialog.id = "ParentalControlDialog"
+        '{
+            scene.dialog = invalid
+        '}
+        end if
+
+        ' Unlocked - play pending content if any
+        if m.pending_play_content <> invalid
+        '{
+            if m.pending_play_index = -1
+            '{
+                ' Resume channel logic
+                m.video_content_type = 0
+                m.video_player.content = m.pending_play_content
+                m.video_player.video.content.Title = m.pending_play_content.Title
+                m.video_player.video.content.Url = m.pending_play_content.Url
+                m.video_player.video.content.StreamFormat = m.pending_play_content.StreamFormat
+                m.video_player.video.content.HttpHeaders = m.pending_play_content.HttpHeaders
+                m.video_player.video.content.SubtitleConfig = { TrackName: "eia608/1" }
+                m.video_player.video.control = "play"
+            '}
+            else if m.pending_play_index >= 0
+            '{
+                ActuallyPlayVideoContent( m.pending_play_content, m.pending_play_index )
+            '}
+            end if
+            
+            m.pending_play_content = invalid
+            m.pending_play_index = -2
+        '}
+        end if
+    '}
+    end if
+'}
+end sub
+
+sub UpdateLang()
+    scene = m.top.GetScene()
+    if scene.dialog <> invalid and scene.dialog.id = "ParentalControlDialog"
+        scene.dialog.title = _tr( "parental_control_lock" )
+        scene.dialog.message = _tr( "parental_control_active_msg" )
+    end if
+end sub
+
+sub OnParentalControlDialogClose()
+'{
+    m.top.GetScene().dialog = invalid
+'}
+end sub
+
+sub OnServerControlCommand()
+'{
+    command = m.socket_server.control_command
+    if command = "stop"
+        ' Force stop video playback
+        if m.video_player.video.state = "playing" or m.video_player.video.state = "paused" or m.video_player.video.state = "buffering"
+        '{
+            m.video_player.video.control = "stop"
+        '}
+        end if
+        ' Trigger parental lock
+        m.global.parental_control_active = true
+    else if command = "lock"
+        m.global.parental_control_active = true
+    else if command = "unlock"
+        m.global.parental_control_active = false
+    end if
+'}
+end sub
+
+sub UpdateSocketServerTitle()
+'{
+    if m.socket_server <> invalid and m.video_player <> invalid and m.video_player.video <> invalid
+    '{
+        state = m.video_player.video.state
+        m.socket_server.video_state = state
+        if m.video_player.video.content <> invalid and m.video_player.video.content.title <> invalid
+        '{
+            channelTitle = m.video_player.video.content.title
+            programTitle = GetCurrentProgramTitle(m.video_player.content)
+            if programTitle <> ""
+            '{
+                m.socket_server.video_title = channelTitle + " - " + programTitle
+            '}
+            else
+            '{
+                m.socket_server.video_title = channelTitle
+            '}
+            end if
+        '}
+        else
+        '{
+            m.socket_server.video_title = ""
+        '}
+        end if
+    '}
+    end if
+'}
+end sub
+
+function GetCurrentProgramTitle(channelContent as Object) as String
+    if channelContent = invalid then return ""
+    
+    channelName = channelContent.title
+    if channelName = "" or channelName = invalid then return ""
+    
+    guideContent = m.top.epg_content
+    if guideContent = invalid then return ""
+    
+    guideChannel = invalid
+    for i = 0 to guideContent.GetChildCount() - 1
+        chNode = guideContent.GetChild(i)
+        if chNode <> invalid and chNode.title = channelName
+            guideChannel = chNode
+            exit for
+        end if
+    end for
+    
+    if guideChannel = invalid then return ""
+    
+    count = guideChannel.GetChildCount()
+    if count = 0 then return ""
+    
+    date_time = CreateObject( "roDateTime" )
+    date_time.Mark()
+    nowTime = date_time.AsSeconds()
+    
+    for i = 0 to count - 1
+        program = guideChannel.GetChild(i)
+        if program <> invalid and program.start_time <> invalid and program.end_time <> invalid
+            if nowTime >= program.start_time and nowTime < program.end_time
+                if program.Title <> invalid then return program.Title
+            end if
+        end if
+    end for
+    
+    return ""
 end function

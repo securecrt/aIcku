@@ -1,6 +1,7 @@
 '
-'	Erku - IPTV client for the Roku OS
+'	aIcku - another IPTV client for Roku OS
 '	Copyright (C) 2024 Eric Kutcher
+'	Copyright (C) 2026 Xin Wang
 '	Released under the GPLv3 license.
 '
 
@@ -8,8 +9,8 @@ sub Init()
 '{
 	m.top.visible = false
 
-	m.content_index = 1
-	m.selected_row_index = 1
+	m.content_index = 0
+	m.selected_row_index = 0
 
 	m.row_width = 500
 	m.row_height = 75
@@ -20,7 +21,7 @@ sub Init()
 	m.drawing_styles = {
 		"icon": {
 			"fontSize": 48
-			"fontUri": "pkg:/components/fonts/Erku.ttf"
+			"fontUri": "pkg:/components/fonts/aIcku.ttf"
 			"color": "#FFFFFFFF"
 		}
 		"default": {
@@ -54,63 +55,35 @@ sub Init()
 
 	m.container = CreateObject( "roSGNode", "Rectangle" )
 	m.container.width = m.row_width
-	m.container.height = m.row_height * 7
+	m.container.height = m.row_height * 4
 	m.container.translation = [ 0, ( m.global.screen_height - m.container.height ) / 2 ]
 	m.container.color = "0x00000000"
 
 	''''''''''''''''''''''''
 
-	m.row_search = CreateObject( "roSGNode", "Rectangle" )
-	m.row_search.width = m.row_width
-	m.row_search.height = m.row_height
-	m.row_search.translation = [ 0, 0 ]
-	m.row_search.color = m.row_color
-
-		row_line = CreateObject( "roSGNode", "Rectangle" )
-		row_line.width = m.row_width
-		row_line.height = 3
-		row_line.translation = [ 0, 100 ]
-		row_line.color = "#FFFFFFFF"
-		m.container.AppendChild( row_line )
-
 	m.row_live_tv = CreateObject( "roSGNode", "Rectangle" )
 	m.row_live_tv.width = m.row_width
 	m.row_live_tv.height = m.row_height
-	m.row_live_tv.translation = [ 0, 125 ]
+	m.row_live_tv.translation = [ 0, 50 ]
 	m.row_live_tv.color = m.row_selected_color
-
-	m.row_movies = CreateObject( "roSGNode", "Rectangle" )
-	m.row_movies.width = m.row_width
-	m.row_movies.height = m.row_height
-	m.row_movies.translation = [ 0, 200 ]
-	m.row_movies.color = m.row_color
-	
-	m.row_tv_shows = CreateObject( "roSGNode", "Rectangle" )
-	m.row_tv_shows.width = m.row_width
-	m.row_tv_shows.height = m.row_height
-	m.row_tv_shows.translation = [ 0, 275 ]
-	m.row_tv_shows.color = m.row_color
 
 		row_line = CreateObject( "roSGNode", "Rectangle" )
 		row_line.width = m.row_width
 		row_line.height = 3
-		row_line.translation = [ 0, 375 ]
+		row_line.translation = [ 0, 150 ]
 		row_line.color = "#FFFFFFFF"
 		m.container.AppendChild( row_line )
 
 	m.row_options = CreateObject( "roSGNode", "Rectangle" )
 	m.row_options.width = m.row_width
 	m.row_options.height = m.row_height
-	m.row_options.translation = [ 0, 400 ]
+	m.row_options.translation = [ 0, 175 ]
 	m.row_options.color = m.row_color
 
-	m.row_info = [ { "row": m.row_search, "text" : "Search", "icon_index" : 59648 },
-				   { "row": m.row_live_tv, "text" : "Live TV", "icon_index" : 59649 },
-				   { "row": m.row_movies, "text" : "Movies", "icon_index" : 59650 },
-				   { "row": m.row_tv_shows, "text" : "TV Shows", "icon_index" : 59651 },
+	m.row_info = [ { "row": m.row_live_tv, "text" : "Live TV", "icon_index" : 59649 },
 				   { "row": m.row_options, "text" : "Options", "icon_index" : 59652 } ]
 
-	for i = 0 to 4
+	for i = 0 to 1
 	'{
 		label = CreateObject( "roSGNode", "MultiStyleLabel" )
 		label.width = 50
@@ -137,7 +110,15 @@ sub Init()
 
 	m.panel.AppendChild( m.container )
 	m.top.AppendChild( m.panel )
+
+	m.global.ObserveField( "translations", "UpdateLang" )
+	UpdateLang()
 '}
+end sub
+
+sub UpdateLang()
+	m.row_live_tv.GetChild( 1 ).text = _tr( "live_tv" )
+	m.row_options.GetChild( 1 ).text = _tr( "options" )
 end sub
 
 sub Scroll( scroll_type as integer )
@@ -156,7 +137,7 @@ sub Scroll( scroll_type as integer )
 	'}
 	else' if scroll_type = 2	' Move Down
 	'{
-		if m.selected_row_index < 4
+		if m.selected_row_index < 1
 		'{
 			m.row_info[ m.selected_row_index ].row.color = m.row_color
 			m.selected_row_index++

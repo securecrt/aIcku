@@ -1,0 +1,6 @@
+# Local configuration files
+.feed_url
+iptv.m3u
+
+# Roku packaging build output
+*.zip

@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>客厅 IPTV 家长控制 (Parental Control)</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Outfit', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background-color: #0d1117;
+            background-image: radial-gradient(circle at 50% 0%, #161b22 0%, #0d1117 100%);
+            color: #c9d1d9;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            position: relative;
+            width: 100%;
+            max-width: 400px;
+            background: rgba(22, 27, 34, 0.7);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 24px;
+            padding: 48px 24px 30px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+            text-align: center;
+            transition: transform 0.3s ease;
+        }
+
+        /* Language Selector Style */
+        .lang-selector {
+            position: absolute;
+            top: 16px;
+            right: 18px;
+            display: inline-flex;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 12px;
+            padding: 2px;
+            z-index: 10;
+        }
+
+        .lang-btn {
+            background: transparent;
+            border: none;
+            color: #8b949e;
+            font-size: 0.7rem;
+            font-weight: 600;
+            padding: 4px 8px;
+            cursor: pointer;
+            border-radius: 8px;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .lang-btn:hover {
+            color: #ffffff;
+        }
+
+        .lang-btn.active {
+            color: #ffffff;
+            background: rgba(255, 255, 255, 0.08);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        .header {
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 1.6rem;
+            font-weight: 700;
+            color: #ffffff;
+            margin-bottom: 8px;
+            letter-spacing: -0.5px;
+        }
+
+        .header p {
+            font-size: 0.9rem;
+            color: #8b949e;
+        }
+
+        /* Lock Icon & Pulse Animation */
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 90px;
+            height: 90px;
+            border-radius: 50%;
+            margin-bottom: 24px;
+            position: relative;
+            transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            background: rgba(255, 255, 255, 0.03);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .status-badge svg {
+            width: 40px;
+            height: 40px;
+            fill: none;
+            stroke-width: 2.5;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+            transition: stroke 0.5s ease;
+        }
+
+        /* Allowed (Unlocked) State */
+        .state-unlocked .status-badge {
+            border-color: #10b981;
+            box-shadow: 0 0 25px rgba(16, 185, 129, 0.2);
+            background: rgba(16, 185, 129, 0.05);
+        }
+
+        .state-unlocked .status-badge svg {
+            stroke: #10b981;
+        }
+
+        /* Locked State */
+        .state-locked .status-badge {
+            border-color: #ef4444;
+            box-shadow: 0 0 25px rgba(239, 68, 68, 0.2);
+            background: rgba(239, 68, 68, 0.05);
+        }
+
+        .state-locked .status-badge svg {
+            stroke: #ef4444;
+        }
+
+        /* Status Label Text */
+        .status-text {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 35px;
+            transition: color 0.5s ease;
+        }
+
+        .state-unlocked .status-text {
+            color: #10b981;
+        }
+
+        .state-locked .status-text {
+            color: #ef4444;
+        }
+
+        /* Toggle Switch */
+        .switch-container {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 16px;
+            padding: 18px 20px;
+            margin-bottom: 20px;
+        }
+
+        .switch-label {
+            text-align: left;
+        }
+
+        .switch-label h3 {
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: #ffffff;
+            margin-bottom: 4px;
+        }
+
+        .switch-label p {
+            font-size: 0.8rem;
+            color: #8b949e;
+        }
+
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 58px;
+            height: 32px;
+        }
+
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #30363d;
+            transition: .4s;
+            border-radius: 34px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 24px;
+            width: 24px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            border-radius: 50%;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        input:checked + .slider {
+            background-color: #ef4444;
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(26px);
+        }
+
+        /* Loader Animation */
+        .loader {
+            display: none;
+            width: 20px;
+            height: 20px;
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            border-top-color: #ffffff;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .footer {
+            font-size: 0.75rem;
+            color: #484f58;
+            margin-top: 10px;
+        }
+
+        /* TV Status Section */
+        .tv-status-container {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 16px;
+            padding: 18px 20px;
+            margin-bottom: 20px;
+            text-align: left;
+        }
+
+        .tv-status-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 12px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            padding-bottom: 8px;
+        }
+
+        .tv-status-header h3 {
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: #ffffff;
+        }
+
+        .tv-badge {
+            font-size: 0.75rem;
+            font-weight: 600;
+            padding: 4px 8px;
+            border-radius: 20px;
+            text-transform: uppercase;
+        }
+
+        .badge-online {
+            background: rgba(16, 185, 129, 0.15);
+            color: #10b981;
+            border: 1px solid rgba(16, 185, 129, 0.3);
+        }
+
+        .badge-offline {
+            background: rgba(239, 68, 68, 0.15);
+            color: #ef4444;
+            border: 1px solid rgba(239, 68, 68, 0.3);
+        }
+
+        .tv-status-body {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .tv-info-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.85rem;
+        }
+
+        .tv-info-label {
+            color: #8b949e;
+        }
+
+        .tv-info-value {
+            color: #ffffff;
+            font-weight: 600;
+        }
+
+        .btn-force-stop {
+            width: 100%;
+            background: #ef4444;
+            color: #ffffff;
+            border: none;
+            border-radius: 10px;
+            padding: 10px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 12px rgba(239, 68, 68, 0.2);
+        }
+
+        .btn-force-stop:hover:not(:disabled) {
+            background: #dc2626;
+            box-shadow: 0 4px 16px rgba(239, 68, 68, 0.4);
+            transform: translateY(-1px);
+        }
+
+        .btn-force-stop:disabled {
+            background: #30363d;
+            color: #8b949e;
+            cursor: not-allowed;
+            box-shadow: none;
+            transform: none;
+        }
+    </style>
+</head>
+<body class="state-unlocked">
+
+    <div class="container" id="controlPanel">
+        <!-- Language Selector -->
+        <div class="lang-selector">
+            <button type="button" class="lang-btn" data-lang="zh">简</button>
+            <button type="button" class="lang-btn" data-lang="en">EN</button>
+        </div>
+
+        <div class="header">
+            <h1 data-i18n="title">客厅 IPTV 家长控制</h1>
+            <p data-i18n="subtitle">Parental Control Center</p>
+        </div>
+
+        <div class="status-badge">
+            <!-- Unlock / Lock SVG -->
+            <svg id="lockIcon" viewBox="0 0 24 24">
+                <!-- Lock body & shackle path (JS updates these) -->
+                <path id="lockShackle" d="M7 11V7a5 5 0 0 1 10 0v4" />
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                <path d="M12 15v3" />
+            </svg>
+        </div>
+
+        <div class="status-text" id="statusLabel">允许播放 (无限制)</div>
+
+        <div class="switch-container">
+            <div class="switch-label">
+                <h3 id="switchTitle" data-i18n="switchTitle">启用家长控制锁</h3>
+                <p id="switchDesc" data-i18n="switchDesc">开启后，电视端将禁用视频播放</p>
+            </div>
+            <div>
+                <label class="switch">
+                    <input type="checkbox" id="lockToggle" disabled>
+                    <span class="slider"></span>
+                </label>
+                <div class="loader" id="loader"></div>
+            </div>
+        </div>
+
+        <!-- TV Client Status Panel -->
+        <div class="tv-status-container" id="tvStatusPanel">
+            <div class="tv-status-header">
+                <h3 data-i18n="tvStatus">电视端状态</h3>
+                <span class="tv-badge badge-offline" id="tvOnlineBadge">离线</span>
+            </div>
+            <div class="tv-status-body">
+                <div class="tv-info-row">
+                    <span class="tv-info-label" data-i18n="nowPlaying">当前播放:</span>
+                    <span class="tv-info-value" id="tvPlayingValue">-</span>
+                </div>
+                <button type="button" class="btn-force-stop" id="btnForceStop" data-i18n="forceStop" disabled>一键切断播放</button>
+            </div>
+        </div>
+
+        <div class="footer" data-i18n="footer">
+            IPTV Control Dashboard &bull; 局域网控制端
+        </div>
+    </div>
+
+    <script>
+        const controlPanel = document.getElementById('controlPanel');
+        const lockToggle = document.getElementById('lockToggle');
+        const statusLabel = document.getElementById('statusLabel');
+        const loader = document.getElementById('loader');
+        const lockShackle = document.getElementById('lockShackle');
+
+        // Translations mapping
+        const translations = {
+            zh: {
+                title: "客厅 IPTV 家长控制",
+                subtitle: "Parental Control Center",
+                statusUnlocked: "允许播放 (无限制)",
+                statusLocked: "家长锁定中 (已禁播)",
+                statusConnFail: "连接服务器失败",
+                switchTitle: "启用家长控制锁",
+                switchDesc: "开启后，电视端将禁用视频播放",
+                tvStatus: "电视端状态",
+                tvOnline: "在线",
+                tvOffline: "离线",
+                nowPlaying: "当前播放:",
+                forceStop: "一键切断播放",
+                footer: "IPTV Control Dashboard &bull; 局域网控制端",
+                playingNone: "无",
+                statusSetFail: "设置状态失败，请重试",
+                forceStopSuccess: "已切断电视端播放并启用家长控制锁",
+                forceStopFail: "发送切断指令失败: "
+            },
+            en: {
+                title: "IPTV Parental Control",
+                subtitle: "Parental Control Center",
+                statusUnlocked: "Playback Allowed (Unrestricted)",
+                statusLocked: "Parental Locked (Playback Blocked)",
+                statusConnFail: "Failed to connect to server",
+                switchTitle: "Enable Parental Lock",
+                switchDesc: "When enabled, video playback is blocked on TV",
+                tvStatus: "TV Status",
+                tvOnline: "Online",
+                tvOffline: "Offline",
+                nowPlaying: "Now Playing:",
+                forceStop: "Force Stop Playback",
+                footer: "IPTV Control Dashboard &bull; LAN Console",
+                playingNone: "None",
+                statusSetFail: "Failed to set status, please try again",
+                forceStopSuccess: "TV playback cut off and parental lock enabled",
+                forceStopFail: "Failed to send stop command: "
+            }
+        };
+
+        // Current state
+        let currentLang = localStorage.getItem('lang') || (navigator.language.startsWith('zh') ? 'zh' : 'en');
+        let isLockedState = false;
+        let isTvOnline = false;
+        let isTvPlaying = false;
+        let tvPlayingTitle = "";
+
+        // Set language function
+        function setLanguage(lang) {
+            currentLang = lang;
+            localStorage.setItem('lang', lang);
+            
+            // Update elements with data-i18n
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                const key = el.getAttribute('data-i18n');
+                if (translations[lang] && translations[lang][key]) {
+                    el.innerHTML = translations[lang][key];
+                }
+            });
+            
+            // Update DOM language & document title
+            document.documentElement.lang = lang === 'zh' ? 'zh-CN' : 'en';
+            document.title = lang === 'zh' ? '客厅 IPTV 家长控制 (Parental Control)' : 'Living Room IPTV Parental Control';
+
+            // Update button active states
+            document.querySelectorAll('.lang-btn').forEach(btn => {
+                if (btn.getAttribute('data-lang') === lang) {
+                    btn.classList.add('active');
+                } else {
+                    btn.classList.remove('active');
+                }
+            });
+
+            // Refresh current state labels
+            updateUI(isLockedState);
+            updateTvUI(isTvOnline, isTvPlaying, tvPlayingTitle);
+        }
+
+        // Bind language buttons
+        document.querySelectorAll('.lang-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                setLanguage(btn.getAttribute('data-lang'));
+            });
+        });
+
+        // Fetch current status from the server
+        async function fetchStatus() {
+            try {
+                const response = await fetch('lock.php');
+                if (response.ok) {
+                    const data = await response.json();
+                    updateUI(data.locked);
+                    if (data.client_ip && data.client_port) {
+                        startTvPolling(data.client_ip, data.client_port);
+                    }
+                }
+            } catch (error) {
+                console.error('获取状态失败 / Failed to fetch status:', error);
+                statusLabel.innerText = translations[currentLang].statusConnFail;
+            } finally {
+                lockToggle.disabled = false;
+            }
+        }
+
+        // Send new status to the server
+        async function setStatus(locked) {
+            lockToggle.style.display = 'none';
+            loader.style.display = 'block';
+            try {
+                const response = await fetch('lock.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ locked: locked })
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    updateUI(data.locked);
+                }
+            } catch (error) {
+                console.error('设置状态失败 / Failed to set status:', error);
+                alert(translations[currentLang].statusSetFail);
+                lockToggle.checked = !locked; // Revert toggle state
+            } finally {
+                lockToggle.style.display = 'inline-block';
+                loader.style.display = 'none';
+            }
+        }
+
+        // Update UI based on status
+        function updateUI(locked) {
+            isLockedState = locked;
+            lockToggle.checked = locked;
+            if (locked) {
+                document.body.className = 'state-locked';
+                statusLabel.innerText = translations[currentLang].statusLocked;
+                // Animate lock shackle closed (move down slightly)
+                lockShackle.setAttribute('d', 'M7 11V7a5 5 0 0 1 10 0v4');
+            } else {
+                document.body.className = 'state-unlocked';
+                statusLabel.innerText = translations[currentLang].statusUnlocked;
+                // Animate lock shackle open (translate up/rotate)
+                lockShackle.setAttribute('d', 'M7 8V7a5 5 0 0 1 5-5 5 5 0 0 1 5 5v2');
+            }
+        }
+
+        // Event listener for toggle
+        lockToggle.addEventListener('change', (e) => {
+            setStatus(e.target.checked);
+        });
+
+        let clientIp = null;
+        let clientPort = null;
+        let tvPollInterval = null;
+
+        // Start polling TV status directly
+        function startTvPolling(ip, port) {
+            clientIp = ip;
+            clientPort = port;
+            if (tvPollInterval) clearInterval(tvPollInterval);
+            
+            // Poll immediately once, then every 3 seconds
+            pollTvStatus();
+            tvPollInterval = setInterval(pollTvStatus, 3000);
+        }
+
+        async function pollTvStatus() {
+            if (!clientIp) return;
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 2000);
+
+            try {
+                const response = await fetch(`http://${clientIp}:${clientPort}/status`, { signal: controller.signal });
+                clearTimeout(timeoutId);
+                if (response.ok) {
+                    const data = await response.json();
+                    let displayTitle = data.title;
+                    if (data.playing && data.title && !data.title.includes(" - ")) {
+                        // TV doesn't have EPG program in title, lookup via epg.php
+                        try {
+                            const epgResponse = await fetch(`epg.php?channel=${encodeURIComponent(data.title)}`);
+                            if (epgResponse.ok) {
+                                const epgData = await epgResponse.json();
+                                if (epgData.found && epgData.program) {
+                                    displayTitle = `${data.title} - ${epgData.program}`;
+                                }
+                            }
+                        } catch (epgErr) {
+                            console.error('EPG lookup error:', epgErr);
+                        }
+                    }
+                    updateTvUI(true, data.playing, displayTitle);
+                } else {
+                    updateTvUI(false);
+                }
+            } catch (error) {
+                clearTimeout(timeoutId);
+                updateTvUI(false);
+            }
+        }
+
+        function updateTvUI(online, playing = false, title = "") {
+            isTvOnline = online;
+            isTvPlaying = playing;
+            tvPlayingTitle = title;
+            const badge = document.getElementById('tvOnlineBadge');
+            const playingVal = document.getElementById('tvPlayingValue');
+            const btnStop = document.getElementById('btnForceStop');
+
+            if (online) {
+                badge.className = 'tv-badge badge-online';
+                badge.innerText = translations[currentLang].tvOnline;
+                
+                if (playing && title) {
+                    playingVal.innerText = title;
+                    btnStop.disabled = false;
+                } else {
+                    playingVal.innerText = translations[currentLang].playingNone;
+                    btnStop.disabled = true;
+                }
+            } else {
+                badge.className = 'tv-badge badge-offline';
+                badge.innerText = translations[currentLang].tvOffline;
+                playingVal.innerText = '-';
+                btnStop.disabled = true;
+            }
+        }
+
+        async function forceStopTv() {
+            if (!clientIp) return;
+            try {
+                // 1. Send direct stop command to TV
+                fetch(`http://${clientIp}:${clientPort}/stop`).catch(e => console.error(e));
+                // 2. Persist the locked status to the server
+                await setStatus(true);
+                alert(translations[currentLang].forceStopSuccess);
+            } catch (error) {
+                console.error(translations[currentLang].forceStopFail, error);
+            }
+        }
+
+        document.getElementById('btnForceStop').addEventListener('click', forceStopTv);
+
+        // Initialize language selection
+        setLanguage(currentLang);
+
+        // Initial fetch
+        fetchStatus();
+    </script>
+</body>
+</html>

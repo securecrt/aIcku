@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<component name="SocketServerTask" extends="Task">
+    <interface>
+        <!-- Commands received from the server/client -->
+        <field id="control_command" type="string" value="" alwaysnotify="true" />
+        
+        <!-- Status of the TV client to be returned to queries -->
+        <field id="video_state" type="string" value="stopped" />
+        <field id="video_title" type="string" value="" />
+    </interface>
+    
+    <script type="text/brightscript" uri="pkg:/components/tasks/SocketServerTask.brs" />
+</component>

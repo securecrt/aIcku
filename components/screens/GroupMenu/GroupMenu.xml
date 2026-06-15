@@ -6,7 +6,6 @@
 		<field id="content_index" type="integer" value="-1" alwaysnotify="true" />
 		<field id="content_offset" type="integer" value="-1" />
 		<field id="update_content" type="bool" value="false" />
-		<field id="details_content" type="node" value="invalid" onChange="OnDetailsContentChange" alwaysnotify="true" />
 		<field id="enter_group_content" type="node" value="invalid" onChange="OnEnterGroupContentChange" />
 	</interface>
 	<script type="text/brightscript" uri="pkg:/components/screens/GroupMenu/GroupMenu.brs" />

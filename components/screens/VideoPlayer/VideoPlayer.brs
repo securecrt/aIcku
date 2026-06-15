@@ -1,6 +1,7 @@
 '
-'	Erku - IPTV client for the Roku OS
+'	aIcku - another IPTV client for Roku OS
 '	Copyright (C) 2024 Eric Kutcher
+'	Copyright (C) 2026 Xin Wang
 '	Released under the GPLv3 license.
 '
 
@@ -108,13 +109,7 @@ sub Init()
 
 	m.progress_bar.visible = false
 
-	''''''''''''''''''''''''
 
-	m.vod_info = CreateObject( "roSGNode", "VODInfo" )
-
-	m.vod_info.ObserveField( "menu_state", "OnVODInfoStateChanged" )
-
-	m.top.AppendChild( m.vod_info )
 
 	' The video player has been repositioned.
 	m.video.ObserveField( "translation", "OnTranslationChanged" )
@@ -147,22 +142,6 @@ sub OnTranslationChanged()
 '}
 end sub
 
-sub OnVODInfoStateChanged()
-'{
-	if m.vod_info.menu_state = 0
-	'{
-		m.vod_info.visible = false
-		m.vod_info.SetFocus( false )
-		m.top.SetFocus( true )
-	'}
-	else if m.vod_info.menu_state = 1
-	'{
-		m.vod_info.visible = true
-		m.vod_info.SetFocus( true )
-	'}
-	end if
-'}
-end sub
 
 sub OnContentChange()
 '{
@@ -182,32 +161,8 @@ sub OnContentChange()
 	'}
 	end if
 
-	if m.global.current_content_type = 1 or m.global.current_content_type = 2	' Movies/TV Shows
+	if m.global.current_content_type = 0	' Live TV
 	'{
-		if m.vod_info.content = invalid or m.vod_info.content.isSameNode( m.top.content ) = false
-		'{
-			m.vod_info.content = m.top.content
-
-			m.global.loading_details = 2	' Loading Video Player details.
-			if m.global.current_content_type = 2 and m.vod_info.content.Episode <> -1	' TV Shows
-			'{
-				m.global.details_name = m.vod_info.content.SeriesTitle
-				m.global.details_season = m.vod_info.content.Season.ToStr()
-				m.global.details_episode = m.vod_info.content.Episode.ToStr()
-			'}
-			else' if m.global.current_content_type = 1	' Movies
-			'{
-				m.global.details_name = m.vod_info.content.Title
-			'}
-			end if
-			m.global.details_year = m.vod_info.content.Year
-			m.global.load_details = true
-		'}
-		end if
-	'}
-	else' if m.global.current_content_type = 0	' Live TV
-	'{
-		m.vod_info.details_content = invalid
 		m.video_info.details_content = invalid
 	'}
 	end if
@@ -216,7 +171,6 @@ end sub
 
 sub OnDetailsContentChange()
 '{
-	m.vod_info.details_content = m.top.details_content
 	m.video_info.details_content = m.top.details_content
 
 	if m.top.details_content <> invalid and m.top.details_content.HDPosterUrl <> ""

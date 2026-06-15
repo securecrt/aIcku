@@ -1,6 +1,7 @@
 '
-'	Erku - IPTV client for the Roku OS
+'	aIcku - another IPTV client for Roku OS
 '	Copyright (C) 2024 Eric Kutcher
+'	Copyright (C) 2026 Xin Wang
 '	Released under the GPLv3 license.
 '
 
@@ -13,6 +14,8 @@ sub RunUserInterface()
 
 	m.global = screen.GetGlobalNode()
 
+	m.global.AddField( "ui_lang", "string", true )
+	m.global.AddField( "translations", "assocarray", true )
 	m.global.AddField( "feed_url", "string", true )
 
 	m.global.AddField( "preferred_screen_width", "integer", false )
@@ -23,6 +26,8 @@ sub RunUserInterface()
 	m.global.AddField( "overscan_offset_y", "integer", false )
 	m.global.AddField( "enable_automatic_subtitles", "bool", true )
 	m.global.AddField( "channel_sort_type", "integer", true )
+	m.global.AddField( "parental_control_active", "bool", true )
+	m.global.AddField( "check_parental_control", "bool", true )
 
 	m.global.AddField( "save_window_dimensions", "bool", true )
 
@@ -64,7 +69,7 @@ sub RunUserInterface()
 	m.global.AddField( "loading_epg", "bool", false )
 	m.global.AddField( "loading_details", "integer", false )	' 0 = not loading, 1 = loading from VOD menu, 2 = loading from video player, 3 = loading from group menu
 
-	m.global.AddField( "search_query", "string", false )
+
 
 	m.global.AddField( "favorite_add_remove", "integer", false )
 	m.global.AddField( "favorite_id", "integer", false )
@@ -82,6 +87,8 @@ sub RunUserInterface()
 	m.global.panel_color = "0x001020E0"
 
 	m.global.feed_url = ""
+	m.global.parental_control_active = false
+	m.global.check_parental_control = false
 
 	m.global.enable_automatic_subtitles = false
 
@@ -100,7 +107,7 @@ sub RunUserInterface()
 
 	m.global.current_content_type = -1
 
-	m.global.search_query = ""
+
 
 	m.global.loading_content = false
 	m.global.loading_epg = false
@@ -187,12 +194,52 @@ sub RunUserInterface()
 	m.global.ObserveField( "resume_channel", screen_port )
 	m.global.ObserveField( "channel_sort_type", screen_port )
 	m.global.ObserveField( "feed_url", screen_port )
+	m.global.ObserveField( "ui_lang", screen_port )
 	m.global.ObserveField( "enable_automatic_subtitles", screen_port )
 	m.global.ObserveField( "save_window_dimensions", screen_port )
+	m.global.ObserveField( "check_parental_control", screen_port )
 
 	m.scene = screen.CreateScene( "Home" )
 	m.scene.backgroundURI = ""
 	m.scene.backgroundColor = "0x000000FF"
+
+	' Register TV client IP with server
+	device_info = CreateObject("roDeviceInfo")
+	ipAddrs = device_info.GetIPAddrs()
+	rokuIp = ""
+	if ipAddrs <> invalid
+		for each key in ipAddrs
+			ip = ipAddrs[key]
+			if ip <> invalid and ip <> "" and ip <> "127.0.0.1"
+				rokuIp = ip
+				exit for
+			end if
+		end for
+	end if
+	
+	if rokuIp <> "" and m.global.feed_url <> ""
+		m3uUrl = m.global.feed_url
+		baseM3u = ""
+		lastSlash = -1
+		for i = m3uUrl.Len() - 1 to 0 step -1
+			if m3uUrl.Mid( i, 1 ) = "/"
+				lastSlash = i
+				exit for
+			end if
+		end for
+		if lastSlash <> -1
+			baseM3u = m3uUrl.Mid( 0, lastSlash + 1 )
+		end if
+		
+		if baseM3u <> ""
+			registerUrl = baseM3u + "lock.php?register=true&ip=" + rokuIp + "&port=8090"
+			m.register_transfer = CreateObject( "roUrlTransfer" )
+			m.register_transfer.EnablePeerVerification( false )
+			m.register_transfer.SetURL( registerUrl )
+			m.register_transfer.SetMessagePort( screen_port )
+			m.register_transfer.AsyncGetToString()
+		end if
+	end if
 
 	screen.Show()
 
@@ -208,11 +255,11 @@ sub RunUserInterface()
 			if field = "load_request"
 			'{
 				' We don't know if this request is for group or channel/VOD content.
-				LoadContent( m.global.current_content_type, m.global.channel_sort_type, m.global.request_id, m.global.content_limit, m.global.content_offset, m.global.search_query )
+				LoadContent( m.global.current_content_type, m.global.channel_sort_type, m.global.request_id, m.global.content_limit, m.global.content_offset, "" )
 			'}
 			else if field = "load_group_chunk"
 			'{
-				LoadContent( m.global.current_content_type, m.global.channel_sort_type, m.global.group_id, m.global.group_content_limit, m.global.group_content_offset, m.global.search_query )
+				LoadContent( m.global.current_content_type, m.global.channel_sort_type, m.global.group_id, m.global.group_content_limit, m.global.group_content_offset, "" )
 			'}
 			else if field = "load_content_chunk"
 			'{
@@ -227,11 +274,11 @@ sub RunUserInterface()
 				'}
 				end if
 
-				LoadContent( m.global.current_content_type, m.global.channel_sort_type, content_group_id, m.global.content_limit, m.global.content_offset, m.global.search_query )
+				LoadContent( m.global.current_content_type, m.global.channel_sort_type, content_group_id, m.global.content_limit, m.global.content_offset, "" )
 			'}
 			else if field = "load_epg_chunk"
 			'{
-				LoadEPG( m.global.channel_sort_type, m.global.channel_content_group_id, m.global.epg_content_limit, m.global.epg_content_offset, m.global.search_query )
+				LoadEPG( m.global.channel_sort_type, m.global.channel_content_group_id, m.global.epg_content_limit, m.global.epg_content_offset, "" )
 			'}
 			else if field = "load_details"
 			'{
@@ -268,6 +315,16 @@ sub RunUserInterface()
 			else if field = "feed_url"
 			'{
 				RegWrite( "FEED_URL", m.global.feed_url )
+				FetchAndParseData()
+			'}
+			else if field = "ui_lang"
+			'{
+				RegWrite( "UI_LANG", m.global.ui_lang )
+				m.global.translations = LoadTranslations( m.global.ui_lang )
+			'}
+			else if field = "check_parental_control"
+			'{
+				m.global.parental_control_active = QueryParentalControlStatus()
 			'}
 			else if field = "enable_automatic_subtitles"
 			'{
@@ -359,10 +416,28 @@ end sub
 
 sub GetSettings()
 '{
+	ui_lang = RegRead( "UI_LANG" )
+	if ui_lang <> invalid
+	'{
+		m.global.ui_lang = ui_lang
+	'}
+	else
+	'{
+		m.global.ui_lang = "en"
+	'}
+	end if
+
+	m.global.translations = LoadTranslations( m.global.ui_lang )
+
 	feed_url = RegRead( "FEED_URL" )
-	if feed_url <> invalid
+	if feed_url <> invalid and feed_url <> ""
 	'{
 		m.global.feed_url = feed_url
+	'}
+	else
+	'{
+		' .feed_url format: a single line containing only the raw URL (e.g., http://your-iptv-server/iptv.m3u)
+		m.global.feed_url = ReadAsciiFile( "pkg:/.feed_url" ).Trim()
 	'}
 	end if
 
@@ -432,188 +507,78 @@ sub LoadContent( content_type as integer, sort_type as integer, id as integer, c
 '{
 	got_content = false
 
-	url = m.global.feed_url + "/get_content.php?type=" + content_type.ToStr() + "&sort=" + sort_type.ToStr() + "&id=" + id.ToStr() + "&limit=" + content_limit.ToStr() + "&offset=" + content_offset.ToStr()
-
-	transfer = CreateObject( "roUrlTransfer" )
-	'transfer.SetHeaders( { "Cookie": "" } )
-
-	' Special ID for the Search group.
-	if id = 5
+	response = GetLocalContent( content_type, sort_type, id, content_limit, content_offset, search_query )
+	if response <> invalid and response.data <> invalid
 	'{
-		url = url + "&query=" + transfer.Escape( search_query )
-	'}
-	end if
-
-	transfer.EnablePeerVerification( false )
-	transfer.SetURL( url )
-
-	json = transfer.GetToString()
-	if json <> ""
-	'{
-		response = ParseJson( json )
-		if response <> invalid
+		if response.data.type = 0	' Groups
 		'{
-			if response.data.type = 0	' Groups
+			got_content = true
+
+			m.global.group_id = response.data.id
+
+			content = CreateObject( "roSGNode", "GroupContentNode" )
+			content.group_id = response.data.id
+			content.Title = response.data.name
+			content.total = response.data.total
+
+			for each value in response.data.values
 			'{
-				got_content = true
+				if ( value.id <> invalid )
+				'{
+					node = CreateObject( "roSGNode", "GroupContentNode" )
+					node.group_id = value.id
+					node.Title = value.name
 
-				m.global.group_id = response.data.id
+					content.AppendChild( node )
+				'}
+				end if
+			'}
+			end for
 
-				content = CreateObject( "roSGNode", "GroupContentNode" )
-				content.group_id = response.data.id
-				content.Title = response.data.name
-				content.total = response.data.total
+			m.scene.group_content = content
+		'}
+		else if response.data.type = 1	' Channels
+		'{
+			got_content = true
+
+			content = CreateObject( "roSGNode", "GroupContentNode" )
+			content.group_id = response.data.id
+			content.Title = response.data.name
+			content.total = response.data.total
+
+			if m.global.current_content_type = 0	' Live TV
+			'{
+				m.global.channel_content_group_id = response.data.id
 
 				for each value in response.data.values
 				'{
-					if ( value.id <> invalid )
+					node = CreateObject( "roSGNode", "ChannelContentNode" )
+					node.channel_id = value.id
+					node.Number = value.number
+					node.Title = value.name
+					node.HDPosterUrl = value.logo_url
+					node.Url = value.url
+					node.StreamFormat = value.extension
+
+					if value.headers <> ""
 					'{
-						node = CreateObject( "roSGNode", "GroupContentNode" )
-						node.group_id = value.id
-						node.Title = value.name
-
-						''''''''''''''''''''''''
-
-						' For TV Shows.
-						if value.series_name <> invalid
-						'{
-							node.SeriesTitle = value.series_name
-						'}
-						end if
-						if value.type <> invalid
-						'{
-							node.type = value.type
-						'}
-						end if
-						if value.season <> invalid
-						'{
-							node.Season = value.season
-						'}
-						end if
-						if value.year <> invalid and value.year > 0
-						'{
-							node.Year = value.year.ToStr()
-						'}
-						end if
-
-						''''''''''''''''''''''''
-
-						content.AppendChild( node )
+						node.HttpHeaders = value.headers.Split( Chr( 13 ) + Chr( 10 ) )
 					'}
 					end if
+
+					if value.favorite <> 0
+					'{
+						node.Favorite = true
+					'}
+					end if
+
+					content.AppendChild( node )
 				'}
 				end for
-
-				m.scene.group_content = content
-			'}
-			else if response.data.type = 1	' Channels
-			'{
-				got_content = true
-
-				content = CreateObject( "roSGNode", "GroupContentNode" )
-				content.group_id = response.data.id
-				content.Title = response.data.name
-				content.total = response.data.total
-
-				if m.global.current_content_type = 0	' Live TV
-				'{
-					m.global.channel_content_group_id = response.data.id
-
-					for each value in response.data.values
-					'{
-						node = CreateObject( "roSGNode", "ChannelContentNode" )
-						node.channel_id = value.id
-						node.Number = value.number
-						node.Title = value.name
-						node.HDPosterUrl = value.logo_url
-						node.Url = value.url
-						node.StreamFormat = value.extension
-
-						if value.headers <> ""
-						'{
-							node.HttpHeaders = value.headers.Split( Chr( 13 ) + Chr( 10 ) )
-						'}
-						end if
-
-						if value.favorite <> 0
-						'{
-							node.Favorite = true
-						'}
-						end if
-
-						content.AppendChild( node )
-					'}
-					end for
-				'}
-				else if m.global.current_content_type = 1 or m.global.current_content_type = 2	' Movies / TV Shows
-				'{
-					m.global.vod_content_group_id = response.data.id
-
-					for each value in response.data.values
-					'{
-						node = CreateObject( "roSGNode", "ChannelContentNode" )
-						node.channel_id = value.id
-						node.Title = value.name
-						node.SubtitleConfig = { Language: "", Description: "Custom", TrackName: value.subtitle_url }
-						node.HDPosterUrl = value.logo_url
-						node.Url = value.url
-						node.StreamFormat = value.extension
-						if value.year > 0
-						'{
-							node.Year = value.year.ToStr()
-						'}
-						end if
-						if value.headers <> ""
-						'{
-							node.HttpHeaders = value.headers.Split( Chr( 13 ) + Chr( 10 ) )
-						'}
-						end if
-
-						''''''''''''''''''''''''
-
-						' For TV Shows.
-						if value.series_name <> invalid
-						'{
-							node.SeriesTitle = value.series_name
-						'}
-						end if
-						if value.season_name <> invalid
-						'{
-							node.SeasonTitle = value.season_name
-						'}
-						end if
-						if value.season <> invalid and value.season >= 0
-						'{
-							node.Season = value.season
-						'}
-						end if
-						if value.episode <> invalid and value.episode >= 0
-						'{
-							node.Episode = value.episode
-						'}
-						end if
-						if value.series_year <> invalid and value.series_year >= 0
-						'{
-							node.SeriesYear = value.series_year
-						'}
-						end if
-						if value.season_year <> invalid and value.season_year >= 0
-						'{
-							node.SeasonYear = value.season_year
-						'}
-						end if
-
-						''''''''''''''''''''''''
-
-						content.AppendChild( node )
-					'}
-					end for
-				'}
-				end if
-
-				m.scene.content = content
 			'}
 			end if
+
+			m.scene.content = content
 		'}
 		end if
 	'}
@@ -633,79 +598,60 @@ sub LoadEPG( sort_type as integer, id as integer, content_limit as integer, cont
 '{
 	got_content = false
 
-	url = m.global.feed_url + "/get_epg.php?sort=" + sort_type.ToStr() + "&id=" + id.ToStr() + "&limit=" + content_limit.ToStr() + "&offset=" + content_offset.ToStr()
-
-	transfer = CreateObject( "roUrlTransfer" )
-
-	' Special ID for the Search group.
-	if id = 5
+	response = GetLocalEPG( sort_type, id, content_limit, content_offset, search_query )
+	if response <> invalid and response.data <> invalid
 	'{
-		url = url + "&query=" + transfer.Escape( search_query )
-	'}
-	end if
+		got_content = true
 
-	transfer.EnablePeerVerification( false )
-	transfer.SetURL( url )
+		content = CreateObject( "roSGNode", "GroupContentNode" )
+		content.group_id = response.data.id
+		content.Title = response.data.name
+		content.total = response.data.total
 
-	json = transfer.GetToString()
-	if json <> ""
-	'{
-		response = ParseJson( json )
-		if response <> invalid
+		for each channel in response.data.values
 		'{
-			got_content = true
+			channel_node = CreateObject( "roSGNode", "ChannelContentNode" )
+			channel_node.channel_id = channel.id
+			channel_node.Number = channel.number
+			channel_node.Title = channel.name
+			channel_node.HDPosterUrl = channel.logo_url
+			channel_node.Url = channel.url
+			channel_node.StreamFormat = channel.extension
 
-			content = CreateObject( "roSGNode", "GroupContentNode" )
-			content.group_id = response.data.id
-			content.Title = response.data.name
-			content.total = response.data.total
-
-			for each channel in response.data.values
+			if channel.headers <> ""
 			'{
-				channel_node = CreateObject( "roSGNode", "ChannelContentNode" )
-				channel_node.channel_id = channel.id
-				channel_node.Number = channel.number
-				channel_node.Title = channel.name
-				channel_node.HDPosterUrl = channel.logo_url
-				channel_node.Url = channel.url
-				channel_node.StreamFormat = channel.extension
+				channel_node.HttpHeaders = channel.headers.Split( Chr( 13 ) + Chr( 10 ) )
+			'}
+			end if
 
-				if channel.headers <> ""
+			if channel.favorite <> 0
+			'{
+				channel_node.Favorite = true
+			'}
+			end if
+
+			for each program in channel.programs
+			'{
+				' Do not load programs with weird times.
+				if program.start < program.stop
 				'{
-					channel_node.HttpHeaders = channel.headers.Split( Chr( 13 ) + Chr( 10 ) )
+					program_node = CreateObject( "roSGNode", "EPGContentNode" )
+					program_node.Title = program.title
+					program_node.Description = program.description
+					program_node.start_time = program.start
+					program_node.end_time = program.stop
+
+					channel_node.AppendChild( program_node )
 				'}
 				end if
-
-				if channel.favorite <> 0
-				'{
-					channel_node.Favorite = true
-				'}
-				end if
-
-				for each program in channel.programs
-				'{
-					' Do not load programs with weird times.
-					if program.start < program.stop
-					'{
-						program_node = CreateObject( "roSGNode", "EPGContentNode" )
-						program_node.Title = program.title
-						program_node.Description = program.description
-						program_node.start_time = program.start
-						program_node.end_time = program.stop
-
-						channel_node.AppendChild( program_node )
-					'}
-					end if
-				'}
-				end for
-
-				content.AppendChild( channel_node )
 			'}
 			end for
 
-			m.scene.epg_content = content
+			content.AppendChild( channel_node )
 		'}
-		end if
+		end for
+
+		m.scene.epg_content = content
 	'}
 	end if
 
@@ -721,64 +667,12 @@ end sub
 
 sub LoadDetails( content_type as integer, name as string, year as string, season as string, episode as string )
 '{
-	got_content = false
-
-	url = m.global.feed_url + "/get_content_info.php?type=" + content_type.ToStr() + "&year=" + year + "&season=" + season + "&episode=" + episode
-
-	transfer = CreateObject( "roUrlTransfer" )
-
-	url = url + "&name=" + transfer.Escape( name )
-
-	transfer.EnablePeerVerification( false )
-	transfer.SetURL( url )
-
-	json = transfer.GetToString()
-	if json <> ""
-	'{
-		response = ParseJson( json )
-		if response <> invalid
-		'{
-			got_content = true
-
-			content = CreateObject( "roSGNode", "DetailsContentNode" )
-			content.Title = response.data.title
-			content.Runtime = response.data.runtime
-			content.Rating = response.data.rating
-			content.ReleaseDate = response.data.release_date
-			content.EndDate = response.data.end_date
-			content.Seasons = response.data.seasons
-			content.Episodes = response.data.episodes
-			content.HDPosterUrl = response.data.poster_url
-			content.Description = response.data.description
-
-			content.Genres = response.data.genres
-			content.Directors = response.data.directors
-
-			content.Actors = CreateObject( "roSGNode", "Node" )
-			for each value in response.data.actors
-			'{
-				actor_content = CreateObject( "roSGNode", "ActorContentNode" )
-				actor_content.Name = value.name
-				actor_content.CharacterName = value.character_name
-				actor_content.HDPosterUrl = value.photo_url
-
-				content.Actors.AppendChild( actor_content )
-			'}
-			end for
-
-			m.scene.details_content = content
-		'}
-		end if
-	'}
-	end if
-
-	if got_content = false
-	'{
-		' This is set to alwaysnotify in Home, VOD Menu, and VOD Info.
-		' It allows VOD Info to display "No information available.".
-		m.scene.details_content = invalid
-	'}
-	end if
+	content_type = content_type
+	name = name
+	year = year
+	season = season
+	episode = episode
+	m.scene.details_content = invalid
 '}
 end sub
 
@@ -786,86 +680,74 @@ sub LoadChannel( id as integer, channel_number as integer )
 '{
 	got_content = false
 
-	url = m.global.feed_url + "/get_content.php?type=10&id=" + id.ToStr() + "&channel_number=" + channel_number.ToStr()
-
-	transfer = CreateObject( "roUrlTransfer" )
-	transfer.EnablePeerVerification( false )
-	transfer.SetURL( url )
-	json = transfer.GetToString()
-	if json <> ""
+	response = GetLocalChannel( id, channel_number )
+	if response <> invalid and response.data <> invalid
 	'{
-		response = ParseJson( json )
-		if response <> invalid
+		' There should only be one channel.
+		if response.data.values.Count() > 0
 		'{
-			' There should only be one channel.
-			if response.data.values.Count() > 0
+			got_content = true
+
+			content = CreateObject( "roSGNode", "GroupContentNode" )
+			content.group_id = response.data.id
+			content.Title = response.data.name
+			content.total = response.data.total
+
+			m.global.channel_content_group_id = response.data.id
+
+			''''''''''''''''''''''''
+
+			value = response.data.values[ 0 ]
+
+			node = CreateObject( "roSGNode", "ChannelContentNode" )
+			node.channel_id = value.id
+			node.Number = value.number
+			node.Title = value.name
+			node.HDPosterUrl = value.logo_url
+			node.Url = value.url
+			node.StreamFormat = value.extension
+
+			if value.headers <> ""
 			'{
-				got_content = true
-
-				content = CreateObject( "roSGNode", "GroupContentNode" )
-				content.group_id = response.data.id
-				content.Title = response.data.name
-				content.total = response.data.total
-
-				m.global.channel_content_group_id = response.data.id
-
-				''''''''''''''''''''''''
-
-				value = response.data.values[ 0 ]
-
-				node = CreateObject( "roSGNode", "ChannelContentNode" )
-				node.channel_id = value.id
-				node.Number = value.number
-				node.Title = value.name
-				node.HDPosterUrl = value.logo_url
-				node.Url = value.url
-				node.StreamFormat = value.extension
-
-				if value.headers <> ""
-				'{
-					node.HttpHeaders = value.headers.Split( Chr( 13 ) + Chr( 10 ) )
-				'}
-				end if
-
-				if value.favorite <> 0
-				'{
-					node.Favorite = true
-				'}
-				end if
-
-				content.AppendChild( node )
-
-				''''''''''''''''''''''''
-
-				node = CreateObject( "roSGNode", "Node" )
-
-				for each group in response.data.groups
-				'{
-					group_content = CreateObject( "roSGNode", "GroupContentNode" )
-					group_content.group_id = group.id
-					group_content.Title = group.name
-
-					node.AppendChild( group_content )
-				'}
-				end for
-
-				content.AppendChild( node )
-
-				''''''''''''''''''''''''
-
-				' Save our last valid channel number info if it doesn't match the previously saved channel number info.
-				' id = m.global.channel_group_id
-				' channel_number = m.global.channel_number
-				if id <> m.global.last_channel_group_id or channel_number <> m.global.last_channel_number
-				'{
-					RegWrite( "RESUME_CHANNEL_GROUP_ID", id.ToStr() )
-					RegWrite( "RESUME_CHANNEL_NUMBER", channel_number.ToStr() )
-				'}
-				end if
-
-				m.scene.channel_content = content
+				node.HttpHeaders = value.headers.Split( Chr( 13 ) + Chr( 10 ) )
 			'}
 			end if
+
+			if value.favorite <> 0
+			'{
+				node.Favorite = true
+			'}
+			end if
+
+			content.AppendChild( node )
+
+			''''''''''''''''''''''''
+
+			node = CreateObject( "roSGNode", "Node" )
+
+			for each group in response.data.groups
+			'{
+				group_content = CreateObject( "roSGNode", "GroupContentNode" )
+				group_content.group_id = group.id
+				group_content.Title = group.name
+
+				node.AppendChild( group_content )
+			'}
+			end for
+
+			content.AppendChild( node )
+
+			''''''''''''''''''''''''
+
+			' Save our last valid channel number info if it doesn't match the previously saved channel number info.
+			if id <> m.global.last_channel_group_id or channel_number <> m.global.last_channel_number
+			'{
+				RegWrite( "RESUME_CHANNEL_GROUP_ID", id.ToStr() )
+				RegWrite( "RESUME_CHANNEL_NUMBER", channel_number.ToStr() )
+			'}
+			end if
+
+			m.scene.channel_content = content
 		'}
 		end if
 	'}
@@ -880,27 +762,740 @@ sub LoadChannel( id as integer, channel_number as integer )
 '}
 end sub
 
-sub SetFavorite( add_remove_type as integer, id as integer )
-'{
-	favorite_status = -1
-
-	url = m.global.feed_url + "/favorites.php?type=" + add_remove_type.ToStr() + "&id=" + id.ToStr()
-
-	transfer = CreateObject( "roUrlTransfer" )
-	transfer.EnablePeerVerification( false )
-	transfer.SetURL( url )
-	json = transfer.GetToString()
-	if json <> ""
-	'{
-		response = ParseJson( json )
-		if response <> invalid
-		'{
-			favorite_status = response
-		'}
-		end if
-	'}
-	end if
-
-	m.global.favorite_status = favorite_status
-'}
+sub SetFavorite( add_remove_type as integer, channel_id as integer )
+    ' Find the channel by ID
+    channel = invalid
+    for each ch in m.local_channels
+        if ch.id = channel_id
+            channel = ch
+            exit for
+        end if
+    end for
+    
+    if channel = invalid
+        m.global.favorite_status = -1
+        return
+    end if
+    
+    favs = GetFavorites()
+    exists_idx = -1
+    for i = 0 to favs.Count() - 1
+        if favs[ i ] = channel.url
+            exists_idx = i
+            exit for
+        end if
+    end for
+    
+    if add_remove_type = 1 ' Add
+        if exists_idx = -1
+            favs.Push( channel.url )
+        end if
+        channel.favorite = 1
+        
+        has_fav_group = false
+        for each gid in channel.group_ids
+            if gid = 4 then has_fav_group = true
+        end for
+        if not has_fav_group then channel.group_ids.Push( 4 )
+    else if add_remove_type = 0 ' Remove
+        if exists_idx <> -1
+            favs.Delete( exists_idx )
+        end if
+        channel.favorite = 0
+        
+        new_gids = []
+        for each gid in channel.group_ids
+            if gid <> 4 then new_gids.Push( gid )
+        end for
+        channel.group_ids = new_gids
+    end if
+    
+    SaveFavorites( favs )
+    m.global.favorite_status = 1
 end sub
+
+' ==========================================
+' STANDALONE PARSERS & HELPERS
+' ==========================================
+
+sub FetchAndParseData()
+    m.global.loading_content = true
+    m.global.loading_epg = true
+    
+    m.local_channels = []
+    m.local_groups = []
+    
+    m3uUrl = m.global.feed_url
+    if m3uUrl = ""
+        m.global.loading_content = false
+        m.global.loading_epg = false
+        return
+    end if
+    
+    transfer = CreateObject( "roUrlTransfer" )
+    transfer.EnablePeerVerification( false )
+    transfer.SetURL( m3uUrl )
+    m3uText = transfer.GetToString()
+    if m3uText = ""
+        m.global.loading_content = false
+        m.global.loading_epg = false
+        return
+    end if
+    
+    ParseM3U( m3uText )
+    
+    epgUrl = ""
+    lines = m3uText.Split( Chr( 10 ) )
+    if lines.Count() > 0
+        firstLine = lines[ 0 ]
+        epgUrl = GetAttribute( firstLine, "x-tvg-url" )
+    end if
+    
+    if epgUrl = ""
+        lastSlash = m3uUrl.Len() - 1
+        for i = m3uUrl.Len() - 1 to 0 step -1
+            if m3uUrl.Mid( i, 1 ) = "/"
+                lastSlash = i
+                exit for
+            end if
+        end for
+        epgUrl = m3uUrl.Mid( 0, lastSlash + 1 ) + "epg.xml"
+    end if
+    
+    if epgUrl <> ""
+        if epgUrl.Mid( 0, 7 ) <> "http://" and epgUrl.Mid( 0, 8 ) <> "https://"
+            baseM3u = ""
+            lastSlash = -1
+            for i = m3uUrl.Len() - 1 to 0 step -1
+                if m3uUrl.Mid( i, 1 ) = "/"
+                    lastSlash = i
+                    exit for
+                end if
+            end for
+            if lastSlash <> -1
+                baseM3u = m3uUrl.Mid( 0, lastSlash + 1 )
+            end if
+            epgUrl = baseM3u + epgUrl
+        end if
+    end if
+
+    isGz = false
+    if epgUrl.Len() >= 3 and epgUrl.Instr( "epg.php" ) = -1 and epgUrl.Instr( "decompress.php" ) = -1
+        ext = LCase( epgUrl.Mid( epgUrl.Len() - 3, 3 ) )
+        if ext = ".gz"
+            isGz = true
+        end if
+    end if
+    
+    if isGz
+        baseM3u = ""
+        lastSlash = -1
+        for i = m3uUrl.Len() - 1 to 0 step -1
+            if m3uUrl.Mid( i, 1 ) = "/"
+                lastSlash = i
+                exit for
+            end if
+        end for
+        if lastSlash <> -1
+            baseM3u = m3uUrl.Mid( 0, lastSlash + 1 )
+        end if
+        
+        if baseM3u <> ""
+            proxyUrl = baseM3u + "epg.php?url=" + transfer.Escape( epgUrl )
+            epgUrl = proxyUrl
+        end if
+    end if
+
+    transfer.SetURL( epgUrl )
+    xmlText = transfer.GetToString()
+    if xmlText <> ""
+        ParseXMLTV( xmlText )
+    end if
+    
+    m.global.loading_content = false
+    m.global.loading_epg = false
+end sub
+
+sub ParseM3U( m3uText as String )
+    lines = m3uText.Split( Chr( 10 ) )
+    favs = GetFavorites()
+    groupsMap = {}
+    channelId = 0
+    
+    for i = 0 to lines.Count() - 1
+        line = lines[ i ].Trim()
+        if line.Left( 7 ) = "#EXTINF"
+            tvgId = GetAttribute( line, "tvg-id" )
+            tvgName = GetAttribute( line, "tvg-name" )
+            logoUrl = GetAttribute( line, "tvg-logo" )
+            groupTitle = GetAttribute( line, "group-title" )
+            if groupTitle = "" then groupTitle = "Other"
+            
+            displayName = ""
+            lastComma = -1
+            for j = line.Len() - 1 to 0 step -1
+                if line.Mid( j, 1 ) = ","
+                    lastComma = j
+                    exit for
+                end if
+            end for
+            if lastComma <> -1
+                displayName = line.Mid( lastComma + 1 ).Trim()
+            else
+                displayName = tvgName
+            end if
+            
+            streamUrl = ""
+            for k = i + 1 to lines.Count() - 1
+                nextLine = lines[ k ].Trim()
+                if nextLine <> ""
+                    if nextLine.Left( 7 ) = "#EXTINF"
+                        exit for
+                    else if nextLine.Left( 1 ) <> "#"
+                        streamUrl = nextLine
+                        i = k
+                        exit for
+                    end if
+                end if
+            end for
+            
+            if streamUrl <> ""
+                groupId = 0
+                if groupsMap.DoesExist( groupTitle )
+                    groupId = groupsMap[ groupTitle ]
+                else
+                    groupId = 10000 + groupsMap.Count()
+                    groupsMap[ groupTitle ] = groupId
+                    m.local_groups.Push( { id: groupId, name: groupTitle } )
+                end if
+                
+                favorite = 0
+                for each favUrl in favs
+                    if favUrl = streamUrl
+                        favorite = 1
+                        exit for
+                    end if
+                end for
+                
+                group_ids = [ 1, groupId ]
+                if favorite = 1
+                    group_ids.Push( 4 )
+                end if
+                
+                ext = "ts"
+                parsedPath = streamUrl
+                qIdx = streamUrl.Instr( "?" )
+                if qIdx <> -1
+                    parsedPath = streamUrl.Mid( 0, qIdx )
+                end if
+                dotIdx = -1
+                for j = parsedPath.Len() - 1 to 0 step -1
+                    if parsedPath.Mid( j, 1 ) = "."
+                        dotIdx = j
+                        exit for
+                    end if
+                end for
+                if dotIdx <> -1
+                    ext = parsedPath.Mid( dotIdx + 1 ).Trim()
+                end if
+                
+                guideIdName = tvgId
+                if guideIdName = "" then guideIdName = tvgName
+                if guideIdName = "" then guideIdName = displayName
+                
+                channel = {
+                    id: channelId,
+                    number: channelId + 1,
+                    name: displayName,
+                    guide_id_name: guideIdName,
+                    guide_id: -1,
+                    url: streamUrl,
+                    extension: ext,
+                    logo_url: logoUrl,
+                    headers: "",
+                    favorite: favorite,
+                    group_ids: group_ids,
+                    programs: []
+                }
+                
+                m.local_channels.Push( channel )
+                channelId++
+            end if
+        end if
+    next
+end sub
+
+sub ParseXMLTV( xmlText as String )
+    xml = CreateObject( "roXMLElement" )
+    if not xml.Parse( xmlText )
+        print "EPG XML Parse failed"
+        return
+    end if
+    
+    channelMap = {}
+    for each ch in m.local_channels
+        if ch.guide_id_name <> ""
+            channelMap[ ch.guide_id_name ] = ch
+        end if
+    next
+    
+    programmes = xml.GetNamedElements( "programme" )
+    
+    currentTime = CreateObject( "roDateTime" ).AsSeconds()
+    
+    matchedCount = 0
+    for each prog in programmes
+        channelName = prog@channel
+        if channelName <> invalid and channelMap.DoesExist( channelName )
+            channel = channelMap[ channelName ]
+            
+            stopTimeStr = prog@stop
+            stopTs = ParseXmltvTime( stopTimeStr )
+            
+            if stopTs > currentTime
+                startTimeStr = prog@start
+                startTs = ParseXmltvTime( startTimeStr )
+                
+                title_list = prog.GetNamedElements( "title" )
+                title = ""
+                if title_list.Count() > 0 then title = title_list[ 0 ].GetText()
+                
+                desc_list = prog.GetNamedElements( "desc" )
+                desc = ""
+                if desc_list.Count() > 0 then desc = desc_list[ 0 ].GetText()
+                
+                program = {
+                    title: title,
+                    start: startTs,
+                    stop: stopTs,
+                    description: desc
+                }
+                channel.programs.Push( program )
+                matchedCount++
+            end if
+        end if
+    next
+end sub
+
+function ParseXmltvTime( timeStr as String ) as Integer
+    if timeStr.Len() < 14
+        return 0
+    end if
+    
+    year = timeStr.Mid( 0, 4 )
+    month = timeStr.Mid( 4, 2 )
+    day = timeStr.Mid( 6, 2 )
+    hour = timeStr.Mid( 8, 2 )
+    minute = timeStr.Mid( 10, 2 )
+    second = timeStr.Mid( 12, 2 )
+    
+    isoStr = year + "-" + month + "-" + day + "T" + hour + ":" + minute + ":" + second + "Z"
+    
+    trimmed = timeStr.Trim()
+    sign = ""
+    signIdx = -1
+    for idx = trimmed.Len() - 1 to 14 step -1
+        char = trimmed.Mid( idx, 1 )
+        if char = "+" or char = "-"
+            sign = char
+            signIdx = idx
+            exit for
+        end if
+    end for
+    
+    offsetSeconds = 0
+    if signIdx <> -1 and trimmed.Len() >= signIdx + 5
+        offH = trimmed.Mid( signIdx + 1, 2 ).ToInt()
+        offM = trimmed.Mid( signIdx + 3, 2 ).ToInt()
+        offsetSeconds = offH * 3600 + offM * 60
+        if sign = "-"
+            offsetSeconds = -offsetSeconds
+        end if
+    end if
+    
+    dt = CreateObject( "roDateTime" )
+    dt.FromISO8601String( isoStr )
+    return dt.AsSeconds() - offsetSeconds
+end function
+
+function GetAttribute( line as String, attr as String ) as String
+    regex = CreateObject( "roRegex", attr + "=""([^""]*)""", "i" )
+    matches = regex.Match( line )
+    if matches.Count() > 1
+        return matches[ 1 ]
+    end if
+    return ""
+end function
+
+function GetFavorites() as Object
+    json = RegRead( "FAVORITES_JSON" )
+    if json <> invalid
+        favs = ParseJson( json )
+        if favs <> invalid
+            return favs
+        end if
+    end if
+    return []
+end function
+
+sub SaveFavorites( favs as Object )
+    json = FormatJson( favs )
+    RegWrite( "FAVORITES_JSON", json )
+end sub
+
+function GetLocalContent( content_type as integer, sort_type as integer, id as integer, limit as integer, offset as integer, search_query as string ) as Object
+    search_query = search_query
+    response = {
+        data: {
+            type: -1,
+            total: 0,
+            id: id,
+            name: "",
+            values: []
+        }
+    }
+    
+    if content_type <> 0
+        return response
+    end if
+    
+    if m.local_channels = invalid or m.local_channels.Count() = 0
+        FetchAndParseData()
+    end if
+    
+    if id = 0
+        response.data.type = 0
+        response.data.name = "Live TV"
+        
+        group_list = []
+        group_list.Push( { id: 1, name: "All" } )
+        
+        favs = GetFavorites()
+        if favs.Count() > 0
+            group_list.Push( { id: 4, name: "Favorites" } )
+        end if
+        
+
+        
+        for each g in m.local_groups
+            group_list.Push( { id: g.id, name: g.name } )
+        end for
+        
+        response.data.total = group_list.Count()
+        response.data.values = PaginateArray( group_list, limit, offset )
+    else
+        response.data.type = 1
+        
+        group_name = ""
+        if id = 1
+            group_name = "All"
+        else if id = 4
+            group_name = "Favorites"
+        else
+            for each g in m.local_groups
+                if g.id = id
+                    group_name = g.name
+                    exit for
+                end if
+            end for
+        end if
+        response.data.name = group_name
+        
+        filtered_channels = []
+        for each ch in m.local_channels
+            in_group = false
+            for each gid in ch.group_ids
+                if gid = id
+                    in_group = true
+                    exit for
+                end if
+            end for
+            
+            if in_group
+                filtered_channels.Push( ch )
+            end if
+        end for
+        
+        if sort_type = 1
+            SortChannelsByName( filtered_channels )
+        else
+            SortChannelsByNumber( filtered_channels )
+        end if
+        
+        response.data.total = filtered_channels.Count()
+        response.data.values = PaginateArray( filtered_channels, limit, offset )
+    end if
+    
+    return response
+end function
+
+function GetLocalEPG( sort_type as integer, id as integer, limit as integer, offset as integer, search_query as string ) as Object
+    search_query = search_query
+    response = {
+        data: {
+            id: id,
+            name: "",
+            total: 0,
+            values: []
+        }
+    }
+    
+    if m.local_channels = invalid or m.local_channels.Count() = 0
+        FetchAndParseData()
+    end if
+    
+    group_name = ""
+    if id = 0
+        group_name = "Live TV"
+    else if id = 1
+        group_name = "All"
+    else if id = 4
+        group_name = "Favorites"
+    else
+        for each g in m.local_groups
+            if g.id = id
+                group_name = g.name
+                exit for
+            end if
+        end for
+    end if
+    response.data.name = group_name
+    
+    filtered_channels = []
+    for each ch in m.local_channels
+        in_group = false
+        for each gid in ch.group_ids
+            if gid = id or ( id = 0 and gid = 1 )
+                in_group = true
+                exit for
+            end if
+        end for
+        
+        if in_group
+            filtered_channels.Push( ch )
+        end if
+    end for
+    
+    if sort_type = 1
+        SortChannelsByName( filtered_channels )
+    else
+        SortChannelsByNumber( filtered_channels )
+    end if
+    
+    response.data.total = filtered_channels.Count()
+    
+    paginated_channels = PaginateArray( filtered_channels, limit, offset )
+    
+    values = []
+    for each ch in paginated_channels
+        ch_val = {
+            id: ch.id,
+            number: ch.number,
+            name: ch.name,
+            guide_id: ch.guide_id,
+            url: ch.url,
+            extension: ch.extension,
+            logo_url: ch.logo_url,
+            headers: ch.headers,
+            favorite: ch.favorite,
+            programs: ch.programs
+        }
+        values.Push( ch_val )
+    end for
+    
+    response.data.values = values
+    return response
+end function
+
+function GetLocalChannel( id as integer, channel_number as integer ) as Object
+    response = {
+        data: {
+            type: 3,
+            total: 0,
+            id: id,
+            name: "",
+            values: [],
+            groups: []
+        }
+    }
+    
+    if m.local_channels = invalid or m.local_channels.Count() = 0
+        FetchAndParseData()
+    end if
+    
+    channel = invalid
+    for each ch in m.local_channels
+        if ch.number = channel_number
+            channel = ch
+            exit for
+        end if
+    end for
+    
+    if channel <> invalid
+        response.data.total = 1
+        
+        ch_val = {
+            id: channel.id,
+            number: channel.number,
+            name: channel.name,
+            guide_id: channel.guide_id,
+            url: channel.url,
+            extension: channel.extension,
+            logo_url: channel.logo_url,
+            headers: channel.headers,
+            favorite: channel.favorite
+        }
+        response.data.values.Push( ch_val )
+        
+        groups = []
+        groups.Push( { id: 0, name: "Live TV" } )
+        
+        group_name = ""
+        if id = 1
+            group_name = "All"
+        else if id = 4
+            group_name = "Favorites"
+        else
+            for each g in m.local_groups
+                if g.id = id
+                    group_name = g.name
+                    groups.Push( { id: g.id, name: g.name } )
+                    exit for
+                end if
+            end for
+        end if
+        
+        if id = 0 or id = 4
+            response.data.id = 0
+            response.data.name = "Live TV"
+        else
+            response.data.id = id
+            response.data.name = group_name
+        end if
+        
+        response.data.groups = groups
+    end if
+    
+    return response
+end function
+
+function PaginateArray( arr as Object, limit as integer, offset as integer ) as Object
+    total = arr.Count()
+    if total = 0
+        return []
+    end if
+    
+    if limit >= total or limit <= 0
+        return arr
+    end if
+    
+    if offset < 0
+        offset = ( total + ( offset mod total ) ) mod total
+    else if offset >= total
+        offset = offset mod total
+    end if
+    
+    paginated = []
+    if offset + limit <= total
+        for i = 0 to limit - 1
+            paginated.Push( arr[ offset + i ] )
+        end for
+    else
+        first_part_len = total - offset
+        for i = 0 to first_part_len - 1
+            paginated.Push( arr[ offset + i ] )
+        end for
+        second_part_len = limit - first_part_len
+        for i = 0 to second_part_len - 1
+            paginated.Push( arr[ i ] )
+        end for
+    end if
+    
+    return paginated
+end function
+
+sub SortChannelsByName( channels as Object )
+    count = channels.Count()
+    if count < 2 then return
+    for i = 0 to count - 2
+        for j = 0 to count - i - 2
+            if LCase( channels[ j ].name ) > LCase( channels[ j + 1 ].name )
+                temp = channels[ j ]
+                channels[ j ] = channels[ j + 1 ]
+                channels[ j + 1 ] = temp
+            end if
+        end for
+    end for
+end sub
+
+sub SortChannelsByNumber( channels as Object )
+    count = channels.Count()
+    if count < 2 then return
+    for i = 0 to count - 2
+        for j = 0 to count - i - 2
+            if channels[ j ].number > channels[ j + 1 ].number
+                temp = channels[ j ]
+                channels[ j ] = channels[ j + 1 ]
+                channels[ j + 1 ] = temp
+            end if
+        end for
+    end for
+end sub
+
+function QueryParentalControlStatus() as Boolean
+    locked = false
+    m3uUrl = m.global.feed_url
+    if m3uUrl = "" then return false
+    
+    baseM3u = ""
+    lastSlash = -1
+    for i = m3uUrl.Len() - 1 to 0 step -1
+        if m3uUrl.Mid( i, 1 ) = "/"
+            lastSlash = i
+            exit for
+        end if
+    end for
+    if lastSlash <> -1
+        baseM3u = m3uUrl.Mid( 0, lastSlash + 1 )
+    end if
+    
+    if baseM3u <> ""
+        statusUrl = baseM3u + "lock.php"
+        
+        transfer = CreateObject( "roUrlTransfer" )
+        transfer.EnablePeerVerification( false )
+        transfer.SetURL( statusUrl )
+        jsonText = transfer.GetToString()
+        if jsonText <> ""
+            response = ParseJson( jsonText )
+            if response <> invalid and response.locked <> invalid
+                locked = response.locked
+            end if
+        end if
+    end if
+    
+    return locked
+end function
+
+function LoadTranslations( lang as string ) as Object
+	translations = {}
+	filePath = "pkg:/locale/" + lang + ".xml"
+	xmlStr = ReadAsciiFile( filePath )
+	if xmlStr <> ""
+		xml = CreateObject( "roXMLElement" )
+		if xml.Parse( xmlStr )
+			strings = xml.GetNamedElements( "string" )
+			for each s in strings
+				id = s@id
+				if id <> invalid and id <> ""
+					translations[ id ] = s.GetText()
+				end if
+			end for
+		else
+			print "LoadTranslations: failed to parse XML"
+		end if
+	else
+		print "LoadTranslations: XML file is empty or not found"
+	end if
+	return translations
+end function
