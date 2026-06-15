@@ -79,7 +79,7 @@ To deploy the client to your Roku device:
    - `images/`
    - `locale/`
 4. Upload the zip package using the Roku browser installer page (`http://<ROKU_IP>`).
-5. Upon the first launch, configure the Backend URL in the client settings menu to point to your hosted `lock.php`.
+5. Upon the first launch, configure the **Feed URL** in the client settings menu to point to your hosted M3U playlist (e.g., `http://<SERVER_IP>:89/iptv.m3u`).
 
 ---
 
