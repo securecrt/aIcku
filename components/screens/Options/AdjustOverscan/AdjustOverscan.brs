@@ -56,6 +56,8 @@ sub Init()
 		}
 	}
 
+	m.info.drawingStyles = m.drawing_styles
+
 	label_width = 300
 	label_height = 75
 
