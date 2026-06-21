@@ -60,7 +60,10 @@ flowchart LR
 A `docker-compose.yml` is provided at the root of the project to quickly deploy the PHP server.
 
 1. Put your IPTV channels list inside `backend/iptv.m3u`.
-2. Ensure the host `backend/` directory is writable so PHP can read/write `status.json` for locking status.
+2. Ensure the host `backend/` directory is writable. On Linux/NAS hosts, since the Docker PHP-Apache container runs as user `www-data` (UID 33), you should change the ownership of the `backend/` directory and its contents to `www-data:www-data` before launching the container:
+   ```bash
+   chown -R www-data:www-data backend
+   ```
 3. Launch the container:
    ```bash
    docker compose up -d
