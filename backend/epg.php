@@ -6,6 +6,14 @@ header("Access-Control-Allow-Headers: Content-Type");
 $cacheFile = 'epg_cache.xml';
 $cacheLifetime = 43200; // 12 hours cache
 
+// Fallback to system temp directory if local folder is not writable
+if (!is_writable('.') && function_exists('sys_get_temp_dir')) {
+    $tempDir = sys_get_temp_dir();
+    if (is_writable($tempDir)) {
+        $cacheFile = $tempDir . DIRECTORY_SEPARATOR . 'epg_cache.xml';
+    }
+}
+
 // Helper function to parse XMLTV times
 function parseXmltvTime($timeStr) {
     $timeStr = trim($timeStr);
@@ -30,25 +38,71 @@ function parseXmltvTime($timeStr) {
     return 0;
 }
 
+// Robust helper to fetch EPG contents with User-Agent, redirect support, and fallbacks
+function fetchUrlContent($url) {
+    $userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+    
+    // Method 1: cURL (handling open_basedir restrictions)
+    if (extension_loaded('curl')) {
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, $url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+        curl_setopt($ch, CURLOPT_MAXREDIRS, 5);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
+        curl_setopt($ch, CURLOPT_USERAGENT, $userAgent);
+        
+        $data = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        
+        // Manual redirect detection in case follow_location is disabled/blocked by PHP configuration
+        if (($httpCode == 301 || $httpCode == 302) && empty($data)) {
+            $redirectUrl = curl_getinfo($ch, CURLINFO_REDIRECT_URL);
+            if ($redirectUrl) {
+                curl_close($ch);
+                return fetchUrlContent($redirectUrl);
+            }
+        }
+        curl_close($ch);
+        
+        if ($data !== false && $httpCode == 200) {
+            return $data;
+        }
+    }
+    
+    // Method 2: file_get_contents with stream context
+    $opts = [
+        'http' => [
+            'method' => 'GET',
+            'header' => "User-Agent: $userAgent\r\n",
+            'follow_location' => 1,
+            'max_redirects' => 5,
+            'timeout' => 30
+        ],
+        'ssl' => [
+            'verify_peer' => false,
+            'verify_peer_name' => false,
+        ]
+    ];
+    $context = stream_context_create($opts);
+    return @file_get_contents($url, false, $context);
+}
+
 // Function to fetch and refresh cache
 function refreshCache($cacheFile) {
     $url = 'http://epg.51zmt.top:8000/e.xml.gz';
-    $ch = curl_init($url);
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
-    curl_setopt($ch, CURLOPT_TIMEOUT, 30);
-    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-    curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
-    $data = curl_exec($ch);
-    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    curl_close($ch);
+    $data = fetchUrlContent($url);
     
-    if ($data !== false && ($httpCode == 200 || $httpCode == 302)) {
+    if ($data !== false && !empty($data)) {
         $isGz = (substr($data, 0, 2) === "\x1f\x8b");
         $xmlData = $isGz ? @gzdecode($data) : $data;
         if ($xmlData !== false && !empty($xmlData)) {
-            @file_put_contents($cacheFile, $xmlData);
-            return true;
+            $written = @file_put_contents($cacheFile, $xmlData);
+            if ($written !== false) {
+                return true;
+            }
         }
     }
     return false;
