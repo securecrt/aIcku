@@ -115,6 +115,106 @@ if (!$cacheExists || $cacheExpired) {
     refreshCache($cacheFile);
 }
 
+// Case 3: Channels List Request
+if (isset($_GET['action']) && $_GET['action'] === 'channels') {
+    header("Content-Type: application/json; charset=utf-8");
+    $channels = [];
+    $m3uFile = 'iptv.m3u';
+    if (file_exists($m3uFile)) {
+        $m3uContent = file_get_contents($m3uFile);
+        $lines = explode("\n", $m3uContent);
+        $counter = 1;
+        for ($i = 0; $i < count($lines); $i++) {
+            $line = trim($lines[$i]);
+            if (strpos($line, '#EXTINF') === 0) {
+                $tvgId = '';
+                $tvgName = '';
+                $tvgLogo = '';
+                $groupTitle = '';
+                $displayName = '';
+                
+                preg_match('/tvg-id="([^"]*)"/i', $line, $matchesId);
+                preg_match('/tvg-name="([^"]*)"/i', $line, $matchesName);
+                preg_match('/tvg-logo="([^"]*)"/i', $line, $matchesLogo);
+                preg_match('/group-title="([^"]*)"/i', $line, $matchesGroup);
+                
+                if (!empty($matchesId[1])) $tvgId = $matchesId[1];
+                if (!empty($matchesName[1])) $tvgName = $matchesName[1];
+                if (!empty($matchesLogo[1])) $tvgLogo = $matchesLogo[1];
+                if (!empty($matchesGroup[1])) $groupTitle = $matchesGroup[1];
+                
+                $commaPos = strrpos($line, ',');
+                if ($commaPos !== false) {
+                    $displayName = trim(substr($line, $commaPos + 1));
+                } else {
+                    $displayName = $tvgName ?: $tvgId;
+                }
+                
+                $guideId = $tvgId ?: ($tvgName ?: $displayName);
+                
+                $channels[] = [
+                    'number' => $counter++,
+                    'guide_id' => $guideId,
+                    'name' => $displayName,
+                    'logo' => $tvgLogo,
+                    'group' => $groupTitle ?: '未分类',
+                    'program' => null
+                ];
+            }
+        }
+    }
+    
+    // Build guide ID lookup index for active channels in iptv.m3u
+    $activeGuideIds = [];
+    foreach ($channels as $ch) {
+        if (!empty($ch['guide_id'])) {
+            $activeGuideIds[$ch['guide_id']] = true;
+        }
+    }
+    
+    // Resolve EPG programs for each channel in one single pass of epg_cache.xml
+    $now = time();
+    $programsMap = [];
+    if (file_exists($cacheFile)) {
+        $reader = new XMLReader();
+        if ($reader->open($cacheFile)) {
+            while ($reader->read()) {
+                if ($reader->nodeType == XMLReader::ELEMENT && $reader->name === 'programme') {
+                    $channelAttr = $reader->getAttribute('channel');
+                    if (isset($activeGuideIds[$channelAttr])) {
+                        $startAttr = $reader->getAttribute('start');
+                        $stopAttr = $reader->getAttribute('stop');
+                        
+                        $startTs = parseXmltvTime($startAttr);
+                        $stopTs = parseXmltvTime($stopAttr);
+                        
+                        if ($now >= $startTs && $now < $stopTs) {
+                            $xmlNode = new SimpleXMLElement($reader->readOuterXml());
+                            if (isset($xmlNode->title)) {
+                                $programsMap[$channelAttr] = (string)$xmlNode->title;
+                            }
+                        }
+                    }
+                }
+            }
+            $reader->close();
+        }
+    }
+    
+    foreach ($channels as &$channel) {
+        $gid = $channel['guide_id'];
+        if (isset($programsMap[$gid])) {
+            $channel['program'] = $programsMap[$gid];
+        }
+    }
+    
+    echo json_encode([
+        'success' => true,
+        'channels' => $channels
+    ]);
+    exit;
+}
+
 // Case 1: Channel lookup request (returns JSON)
 if (isset($_GET['channel'])) {
     header("Content-Type: application/json; charset=utf-8");

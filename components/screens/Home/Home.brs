@@ -9,6 +9,8 @@ sub Init()
 '{
 	m.pending_play_content = invalid
 	m.pending_play_index = -2
+	m.suppress_menu_on_stop = false
+	m.switching_channel_remotely = false
 
 	m.current_main_menu_content_index = -1	' Used to determine whether we need to load the Live TV, Movies, or TV Shows groups.
 
@@ -148,7 +150,9 @@ sub OnGroupMenuStateChanged()
 	'{
 		m.group_menu.visible = false
 
-		m.main_menu.menu_state = 1
+		if m.switching_channel_remotely <> true
+			m.main_menu.menu_state = 1
+		end if
 	'}
 	end if
 '}
@@ -172,7 +176,9 @@ sub OnChannelMenuStateChanged()
 	'{
 		m.channel_menu.visible = false
 
-		m.group_menu.menu_state = 1
+		if m.switching_channel_remotely <> true
+			m.group_menu.menu_state = 1
+		end if
 	'}
 	end if
 '}
@@ -201,7 +207,9 @@ sub OnOptionsStateChanged()
 	'{
 		m.options.visible = false
 
-		m.main_menu.menu_state = 1
+		if m.switching_channel_remotely <> true
+			m.main_menu.menu_state = 1
+		end if
 	'}
 	else if m.options.menu_state = 1
 	'{
@@ -254,6 +262,8 @@ end sub
 
 sub OnGroupContentChange()
 '{
+	if m.switching_channel_remotely = true then return
+
 	if m.group_menu.content_index >= 0
 	'{
 		' We don't know if this ID is for group or channel/VOD content, but it'll be determined when the request is fulfilled.
@@ -560,9 +570,22 @@ end sub
 sub OnVideoStateChange()
 '{
     UpdateSocketServerTitle()
+    
+    state = m.video_player.video.state
+    if state = "playing"
+        m.suppress_menu_on_stop = false
+        m.switching_channel_remotely = false
+    end if
+    
+    if m.loading_channel = true then return
 
-	if m.video_player.video.state = "stopped" or m.video_player.video.state = "finished" or m.video_player.video.state = "error"
+	if state = "stopped" or state = "finished" or state = "error"
 	'{
+        if m.suppress_menu_on_stop = true or m.switching_channel_remotely = true
+            m.suppress_menu_on_stop = false
+            m.switching_channel_remotely = false
+            return
+        end if
 		' If the channel guide is open and we play a video that stops/fails, then we want to keep the guide open and not display the previously opened menu.
 		if m.channel_guide.menu_state <> 1
 		'{
@@ -614,6 +637,7 @@ end sub
 
 sub OnChannelSelected()
 '{
+    if m.switching_channel_remotely = true then return
 	PlayVideoContent( m.channel_menu.content, m.channel_menu.content_index )
 '}
 end sub
@@ -909,6 +933,30 @@ sub OnServerControlCommand()
         m.global.parental_control_active = true
     else if command = "unlock"
         m.global.parental_control_active = false
+    else if command.Left(12) = "play_number:"
+        channel_number = command.Mid(12).ToInt()
+        if channel_number > 0
+            m.switching_channel_remotely = true
+            ' Close any active menus and focus on video player
+            m.main_menu.menu_state = 0
+            m.group_menu.menu_state = 0
+            m.channel_menu.menu_state = 0
+            m.channel_guide.menu_state = 0
+            m.options.menu_state = 0
+            m.video_player.SetFocus(true)
+            
+            m.show_channel_menu = false
+            m.suppress_menu_on_stop = true
+            
+            channel_group_id = 1    ' All group
+            m.load_channel_type = 1 ' Input Channel
+            m.loading_channel = true
+            m.global.last_channel_group_id = m.global.channel_group_id
+            m.global.last_channel_number = m.global.channel_number
+            m.global.channel_group_id = channel_group_id
+            m.global.channel_number = channel_number
+            m.global.load_channel = true
+        end if
     end if
 '}
 end sub

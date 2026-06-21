@@ -344,6 +344,157 @@
             box-shadow: none;
             transform: none;
         }
+
+        /* Custom scrollbar for channels list */
+        #channelsList::-webkit-scrollbar {
+            width: 4px;
+        }
+        #channelsList::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        #channelsList::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+        }
+        #channelsList::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+        
+        /* Category Button Style */
+        .group-tab {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            color: #8b949e;
+            padding: 5px 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            border-radius: 14px;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .group-tab:hover {
+            color: #ffffff;
+            background: rgba(255, 255, 255, 0.06);
+        }
+        .group-tab.active {
+            color: #ffffff;
+            background: rgba(255, 255, 255, 0.1);
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+        
+        /* Channel Card Item Style */
+        .channel-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 12px;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.04);
+            border-radius: 12px;
+            transition: all 0.3s ease;
+        }
+        
+        .channel-item.disabled {
+            opacity: 0.6;
+        }
+        
+        .channel-item:hover:not(.disabled) {
+            background: rgba(255, 255, 255, 0.05);
+            border-color: rgba(255, 255, 255, 0.1);
+            transform: translateY(-1px);
+        }
+        
+        .channel-info-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex: 1;
+            min-width: 0;
+        }
+        
+        .channel-logo-container {
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            flex-shrink: 0;
+        }
+        
+        .channel-logo-container img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+        
+        .channel-logo-fallback {
+            font-size: 0.65rem;
+            color: #8b949e;
+            font-weight: 700;
+        }
+        
+        .channel-text-details {
+            display: flex;
+            flex-direction: column;
+            text-align: left;
+            min-width: 0;
+            flex: 1;
+        }
+        
+        .channel-name {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #ffffff;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .channel-program {
+            font-size: 0.72rem;
+            color: #8b949e;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-top: 2px;
+        }
+        
+        .btn-switch-channel {
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #ffffff;
+            font-size: 0.72rem;
+            font-weight: 600;
+            padding: 6px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            flex-shrink: 0;
+            margin-left: 10px;
+        }
+        
+        .btn-switch-channel:hover:not(:disabled) {
+            background: #ffffff;
+            color: #0d1117;
+            transform: scale(1.05);
+        }
+        
+        .btn-switch-channel:disabled {
+            background: rgba(255, 255, 255, 0.02);
+            border-color: transparent;
+            color: #484f58;
+            cursor: not-allowed;
+        }
+        
+        #channelSearch:focus {
+            border-color: rgba(255, 255, 255, 0.2);
+            background: rgba(255, 255, 255, 0.05);
+        }
     </style>
 </head>
 <body class="state-unlocked">
@@ -401,6 +552,32 @@
             </div>
         </div>
 
+        <!-- IPTV Channel Guide Panel -->
+        <div class="tv-status-container" id="channelGuidePanel" style="text-align: left; margin-bottom: 20px;">
+            <div class="tv-status-header" style="margin-bottom: 10px;">
+                <h3 data-i18n="channelGuideTitle">IPTV 频道与节目单</h3>
+                <span class="tv-badge" id="channelRefreshBtn" style="cursor: pointer; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); text-transform: none; display: flex; align-items: center; gap: 4px; border-radius: 12px; padding: 4px 8px; font-size: 0.72rem; color: #8b949e; transition: all 0.2s;">
+                    <svg viewBox="0 0 24 24" width="10" height="10" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round" style="display: inline-block;"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
+                    <span data-i18n="refreshBtn">刷新</span>
+                </span>
+            </div>
+            
+            <!-- Search -->
+            <div class="search-container" style="margin-bottom: 12px; position: relative;">
+                <input type="text" id="channelSearch" data-i18n-placeholder="searchPlaceholder" placeholder="搜索频道..." style="width: 100%; padding: 10px 14px; border-radius: 10px; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.06); color: #ffffff; font-size: 0.85rem; outline: none; transition: border-color 0.3s ease;">
+            </div>
+            
+            <!-- Category Tabs -->
+            <div id="channelGroups" style="display: flex; gap: 6px; overflow-x: auto; padding-bottom: 8px; margin-bottom: 10px; scrollbar-width: none; -ms-overflow-style: none;">
+                <!-- Filled dynamically -->
+            </div>
+            
+            <!-- Channels List -->
+            <div id="channelsList" style="max-height: 260px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding-right: 2px;">
+                <!-- Filled dynamically -->
+            </div>
+        </div>
+
         <div class="footer" data-i18n="footer">
             IPTV Control Dashboard &bull; 局域网控制端
         </div>
@@ -432,7 +609,16 @@
                 playingNone: "无",
                 statusSetFail: "设置状态失败，请重试",
                 forceStopSuccess: "已切断电视端播放并启用家长控制锁",
-                forceStopFail: "发送切断指令失败: "
+                forceStopFail: "发送切断指令失败: ",
+                channelGuideTitle: "IPTV 频道与节目单",
+                refreshBtn: "刷新",
+                searchPlaceholder: "搜索频道...",
+                switchChannel: "播放",
+                switchingTo: "正在切换...",
+                switchSuccess: "切换成功",
+                switchFail: "切换失败: ",
+                groupAll: "全部",
+                noChannels: "无匹配频道"
             },
             en: {
                 title: "IPTV Parental Control",
@@ -451,7 +637,16 @@
                 playingNone: "None",
                 statusSetFail: "Failed to set status, please try again",
                 forceStopSuccess: "TV playback cut off and parental lock enabled",
-                forceStopFail: "Failed to send stop command: "
+                forceStopFail: "Failed to send stop command: ",
+                channelGuideTitle: "IPTV Channel Guide",
+                refreshBtn: "Refresh",
+                searchPlaceholder: "Search channel...",
+                switchChannel: "Play",
+                switchingTo: "Switching...",
+                switchSuccess: "Switched",
+                switchFail: "Failed: ",
+                groupAll: "All",
+                noChannels: "No channels found"
             }
         };
 
@@ -474,6 +669,19 @@
                     el.innerHTML = translations[lang][key];
                 }
             });
+
+            document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+                const key = el.getAttribute('data-i18n-placeholder');
+                if (translations[lang] && translations[lang][key]) {
+                    el.placeholder = translations[lang][key];
+                }
+            });
+
+            if (typeof renderGroups === 'function' && typeof renderChannels === 'function' && channelsData.length > 0) {
+                const groups = ['All', ...new Set(channelsData.map(ch => ch.group))];
+                renderGroups(groups);
+                renderChannels();
+            }
             
             // Update DOM language & document title
             document.documentElement.lang = lang === 'zh' ? 'zh-CN' : 'en';
@@ -642,6 +850,11 @@
                 playingVal.innerText = '-';
                 btnStop.disabled = true;
             }
+
+            // Enable/disable channel play buttons based on online status
+            document.querySelectorAll('.btn-switch-channel').forEach(btn => {
+                btn.disabled = !online;
+            });
         }
 
         async function forceStopTv() {
@@ -659,11 +872,161 @@
 
         document.getElementById('btnForceStop').addEventListener('click', forceStopTv);
 
+        // IPTV Channel guide and remote control JS logic
+        let channelsData = [];
+        let activeGroup = 'All';
+        let searchQuery = '';
+
+        async function fetchChannels() {
+            const listContainer = document.getElementById('channelsList');
+            const groupsContainer = document.getElementById('channelGroups');
+            listContainer.innerHTML = '<div style="font-size:0.8rem;color:#8b949e;padding:15px;text-align:center;">Loading channels...</div>';
+            
+            try {
+                const response = await fetch('epg.php?action=channels');
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.success && data.channels) {
+                        channelsData = data.channels;
+                        const groups = ['All', ...new Set(channelsData.map(ch => ch.group))];
+                        renderGroups(groups);
+                        renderChannels();
+                    } else {
+                        listContainer.innerHTML = '<div style="font-size:0.8rem;color:#ef4444;padding:15px;text-align:center;">Failed to parse channel response</div>';
+                    }
+                } else {
+                    listContainer.innerHTML = '<div style="font-size:0.8rem;color:#ef4444;padding:15px;text-align:center;">HTTP error loading channels</div>';
+                }
+            } catch (err) {
+                console.error(err);
+                listContainer.innerHTML = '<div style="font-size:0.8rem;color:#ef4444;padding:15px;text-align:center;">Network error loading channels</div>';
+            }
+        }
+
+        function renderGroups(groups) {
+            const container = document.getElementById('channelGroups');
+            container.innerHTML = '';
+            
+            groups.forEach(g => {
+                const btn = document.createElement('button');
+                btn.className = `group-tab ${activeGroup === g ? 'active' : ''}`;
+                btn.innerText = g === 'All' ? translations[currentLang].groupAll : g;
+                btn.addEventListener('click', () => {
+                    activeGroup = g;
+                    document.querySelectorAll('.group-tab').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    renderChannels();
+                });
+                container.appendChild(btn);
+            });
+        }
+
+        function renderChannels() {
+            const listContainer = document.getElementById('channelsList');
+            listContainer.innerHTML = '';
+            
+            const filtered = channelsData.filter(ch => {
+                const matchesGroup = activeGroup === 'All' || ch.group === activeGroup;
+                const matchesSearch = searchQuery === '' || 
+                    ch.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                    (ch.program && ch.program.toLowerCase().includes(searchQuery.toLowerCase()));
+                return matchesGroup && matchesSearch;
+            });
+            
+            if (filtered.length === 0) {
+                listContainer.innerHTML = `<div style="font-size:0.8rem;color:#8b949e;padding:20px;text-align:center;">${translations[currentLang].noChannels}</div>`;
+                return;
+            }
+            
+            filtered.forEach(ch => {
+                const item = document.createElement('div');
+                item.className = `channel-item ${!isTvOnline ? 'disabled' : ''}`;
+                
+                let logoHtml = '';
+                if (ch.logo) {
+                    logoHtml = `<img src="${ch.logo}" alt="${ch.name}" onerror="this.style.display='none';this.nextElementSibling.style.display='block';">`;
+                }
+                const firstChar = ch.name ? ch.name.charAt(0) : 'TV';
+                logoHtml += `<span class="channel-logo-fallback" style="${ch.logo ? 'display:none;' : ''}">${firstChar}</span>`;
+                
+                const programName = ch.program ? ch.program : (currentLang === 'zh' ? '暂无节目信息' : 'No program info');
+                
+                item.innerHTML = `
+                    <div class="channel-info-wrapper">
+                        <div class="channel-logo-container">${logoHtml}</div>
+                        <div class="channel-text-details">
+                            <span class="channel-name">${ch.name}</span>
+                            <span class="channel-program">${programName}</span>
+                        </div>
+                    </div>
+                    <button class="btn-switch-channel" ${!isTvOnline ? 'disabled' : ''}>${translations[currentLang].switchChannel}</button>
+                `;
+                
+                const btn = item.querySelector('.btn-switch-channel');
+                btn.addEventListener('click', () => switchChannel(ch, btn));
+                
+                listContainer.appendChild(item);
+            });
+        }
+
+        async function switchChannel(channel, btn) {
+            if (!clientIp || !clientPort) return;
+            
+            const origText = btn.innerText;
+            btn.disabled = true;
+            btn.innerText = translations[currentLang].switchingTo;
+            
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 4000);
+            
+            try {
+                const response = await fetch(`http://${clientIp}:${clientPort}/play?number=${channel.number}`, { 
+                    signal: controller.signal,
+                    mode: 'cors'
+                });
+                clearTimeout(timeoutId);
+                if (response.ok) {
+                    btn.innerText = translations[currentLang].switchSuccess;
+                    btn.style.background = '#10b981';
+                    btn.style.borderColor = '#10b981';
+                } else {
+                    btn.innerText = 'Err';
+                    btn.style.background = '#ef4444';
+                    btn.style.borderColor = '#ef4444';
+                }
+            } catch (err) {
+                clearTimeout(timeoutId);
+                console.error(err);
+                btn.innerText = 'Err';
+                btn.style.background = '#ef4444';
+                btn.style.borderColor = '#ef4444';
+            } finally {
+                setTimeout(() => {
+                    btn.disabled = !isTvOnline;
+                    btn.innerText = origText;
+                    btn.style.background = '';
+                    btn.style.borderColor = '';
+                }, 1500);
+            }
+        }
+
+        // Search trigger
+        document.getElementById('channelSearch').addEventListener('input', (e) => {
+            searchQuery = e.target.value;
+            renderChannels();
+        });
+
+        // Refresh trigger
+        document.getElementById('channelRefreshBtn').addEventListener('click', () => {
+            fetchChannels();
+        });
+
         // Initialize language selection
         setLanguage(currentLang);
 
-        // Initial fetch
+        // Initial fetch status & channel list
         fetchStatus();
+        fetchChannels();
     </script>
 </body>
 </html>

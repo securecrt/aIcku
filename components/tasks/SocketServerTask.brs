@@ -113,6 +113,10 @@ sub handleHttpRequest(conn as Object)
     else if path = "/stop"
         m.top.control_command = "stop"
         responseBody = "{""success"":true}"
+    else if path.Left(13) = "/play?number="
+        numStr = path.Mid(13)
+        m.top.control_command = "play_number:" + numStr
+        responseBody = "{""success"":true}"
     else if path = "/lock"
         m.top.control_command = "lock"
         responseBody = "{""success"":true}"
